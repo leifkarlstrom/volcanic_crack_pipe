@@ -35,7 +35,9 @@ g = 9.81;
 % if ~exist('dz','var')
 %     dz = 1; %depth step
 % end
-deltaP = 1E5;%pressure step for compressibility
+deltaP = 1E7;%pressure step for compressibility, 
+% if too small will cause issues with ddensity_dP being negative at depth due to
+% limited resolution if solubility tables, reccomend > 1E7
 
 stable_error_tol = 1E0;%density stability error tolerance
 
@@ -524,9 +526,12 @@ for i = 1:length(zvec)
         - dgasmassfrac_dP_vec(i)/melt_density_vec(i) - (gas_massfrac_vec(i)*dgasdensity_dP_vec(i))...
         /gas_density_vec(i)^2 - ((1 - gas_massfrac_vec(i))*dmeltdensity_dP)...
         /melt_density_vec(i)^2)/(gas_massfrac_vec(i)/gas_density_vec(i)...
-        + (1 - gas_massfrac_vec(i))/melt_density_vec(i))^2);
+        + (1 - gas_massfrac_vec(i))/melt_density_vec(i))^2);    
     
 end
+
+soundspeed_vec = sqrt(1./ddensity_dP_vec);
+bulkmod_vec = density_vec./ddensity_dP_vec;
 
 phimax = max(porosity_vec);
 
@@ -652,6 +657,12 @@ d_density_dz_vec_cond = -(density_vec(Hlake_ind:restop_ind)...
 mid_ddensity_dP_vec_cond = ddensity_dP_vec(Hlake_ind-1:restop_ind-1) ...
     + (ddensity_dP_vec(Hlake_ind:restop_ind)...
     - ddensity_dP_vec(Hlake_ind-1:restop_ind-1)).*mid_frac_cond;
+mid_soundspeed_vec_cond = soundspeed_vec(Hlake_ind-1:restop_ind-1) ...
+    + (soundspeed_vec(Hlake_ind:restop_ind)...
+    - soundspeed_vec(Hlake_ind-1:restop_ind-1)).*mid_frac_cond;
+mid_bulkmod_vec_cond = bulkmod_vec(Hlake_ind-1:restop_ind-1) ...
+    + (bulkmod_vec(Hlake_ind:restop_ind)...
+    - bulkmod_vec(Hlake_ind-1:restop_ind-1)).*mid_frac_cond;
 mid_mu_vec_cond = mu_vec(Hlake_ind-1:restop_ind-1) ...
     + (mu_vec(Hlake_ind:restop_ind)...
     - mu_vec(Hlake_ind-1:restop_ind-1)).*mid_frac_cond;
@@ -698,6 +709,15 @@ conddipvec(mid_zvec_condlake > Hlake) = conddip;
 mid_density_vec_condlake = density_vec(1:restop_ind-1) ...
     + (density_vec(2:restop_ind)...
     - density_vec(1:restop_ind-1)).*mid_frac_condlake;
+mid_ddensity_dP_vec_condlake = ddensity_dP_vec(1:restop_ind-1) ...
+    + (ddensity_dP_vec(2:restop_ind)...
+    - ddensity_dP_vec(1:restop_ind-1)).*mid_frac_condlake;
+mid_soundspeed_vec_condlake = soundspeed_vec(1:restop_ind-1) ...
+    + (soundspeed_vec(2:restop_ind)...
+    - soundspeed_vec(1:restop_ind-1)).*mid_frac_condlake;
+mid_bulkmod_vec_condlake = bulkmod_vec(1:restop_ind-1) ...
+    + (bulkmod_vec(2:restop_ind)...
+    - bulkmod_vec(1:restop_ind-1)).*mid_frac_condlake;
 d_density_dz_vec_condlake = -(density_vec(2:restop_ind)...
     - density_vec(1:restop_ind-1))./...
     (zvec(2:restop_ind)...
@@ -766,7 +786,7 @@ if plotprofiles
 figure()
 
 %   nexttile%subplot(1,5,1)
-subplot('position',[0.15,0.15,0.35,0.6])
+subplot('position',[0.15,0.15,0.25,0.6])
   hold on
   plot(CO2_vec+H2O_vec,zvec,'k','LineWidth',2.5)
   plot(CO2_gas_vec+H2O_gas_vec,zvec,'k:','LineWidth',3)
@@ -859,7 +879,7 @@ subplot('position',[0.15,0.15,0.35,0.6])
 %   set(gca,'FontSize',12)
 
 %   nexttile%subplot(1,5,4)
-  subplot('position',[0.525,0.15,0.2,0.6])
+  subplot('position',[0.425,0.15,0.15,0.6])
   plot(density_vec,zvec,'k','LineWidth',2.5)
   hold on
   plot(gas_density_vec,zvec,'k:','LineWidth',3)
@@ -882,7 +902,7 @@ subplot('position',[0.15,0.15,0.35,0.6])
   xlim([0,2800])
   
 %   nexttile%subplot(1,5,5)
-subplot('position',[0.75,0.15,0.2,0.6])
+subplot('position',[0.6,0.15,0.15,0.6])
   plot(mu_vec,zvec,'k','LineWidth',2.5)
   hold on
   plot(mu_melt_vec,zvec,'k--','LineWidth',3)
@@ -902,6 +922,27 @@ subplot('position',[0.75,0.15,0.2,0.6])
   yline(zvec(resbot_ind),'k-')%,'reservoir bottom','FontSize',14); 
   set(gca,'XScale','Log')
   set(gca,'FontSize',14)
+
+subplot('position',[0.8,0.15,0.15,0.6])
+  plot(soundspeed_vec,zvec,'k','LineWidth',2.5)
+  hold on
+  %semilogx(ddensity_dP*[1;1],...
+  %[P(Pcolumn_ind+top_ind);P(Pcolumn_ind+bot_ind+1)]/1E6,'*--g','LineWidth',0.5)
+  xlabel({'sound speed','(m/s)'})
+  grid on, box on
+  legend('bulk','Location','northwest','AutoUpdate','off')%'Integrated','Location','southeast')
+  set(gca,'ydir','reverse')
+%   xlim([dmeltdensity_dP/2,nanmax([dgasdensity_dP_vec;ddensity_dP_vec])*2])
+  yticks(yticklist)
+  yticklabels([])
+  ylim(ylimits)
+  %xticks(10.^(-20:20))
+  yline(zvec(Hlake_ind),'k-')%,'conduit top','FontSize',14);
+  yline(zvec(restop_ind),'k-')%,'conduit bottom','FontSize',14);
+  yline(zvec(resbot_ind),'k-')%,'reservoir bottom','FontSize',14); 
+  %set(gca,'XScale','Log')
+  set(gca,'FontSize',14)
+
 %                   pause
 end
 
@@ -909,26 +950,28 @@ end
 output_struct = struct();
 output_struct.density_res = density_res;
 output_struct.ddensity_dP_res = ddensity_dP_res;
-output_struct.density_cond = density_cond;
-output_struct.ddensity_dP_cond = ddensity_dP_cond;
-output_struct.density_cond_top = density_cond_top;
-output_struct.mu_cond = mu_cond;
-output_struct.density_condlake_top = density_condlake_top;
-output_struct.density_cond_bot = density_cond_bot;
+% output_struct.density_cond = density_cond;
+% output_struct.ddensity_dP_cond = ddensity_dP_cond;
+% output_struct.density_cond_top = density_cond_top;
+% output_struct.mu_cond = mu_cond;
+% output_struct.density_condlake_top = density_condlake_top;
+% output_struct.density_cond_bot = density_cond_bot;
 
-output_struct.density_lake = density_lake;
-output_struct.mu_lake = mu_lake;
+% output_struct.density_lake = density_lake;
+% output_struct.mu_lake = mu_lake;
 
 output_struct.mid_mu_vec_condlake = mid_mu_vec_condlake;
 output_struct.mid_Rvec_condlake = mid_Rvec_condlake;
 output_struct.Acondlakevec = Acondlakevec;
 output_struct.mid_density_vec_condlake = mid_density_vec_condlake;
-output_struct.mid_Rvec_condlake = mid_Rvec_condlake;
+output_struct.mid_ddensity_dP_vec_condlake = mid_ddensity_dP_vec_condlake;
+output_struct.mid_soundspeed_vec_condlake = mid_soundspeed_vec_condlake;
+output_struct.mid_bulkmod_vec_condlake = mid_bulkmod_vec_condlake;
 output_struct.delta_zvec_condlake = delta_zvec_condlake;
 output_struct.mid_zvec_condlake = mid_zvec_condlake;
-output_struct.d_density_dz_vec_condlake = d_density_dz_vec_condlake;
+% output_struct.d_density_dz_vec_condlake = d_density_dz_vec_condlake;
 
 output_struct.thermo_unstable = thermo_unstable;
-output_struct.phimax = phimax;
+% output_struct.phimax = phimax;
 output_struct.P_restop = P_restop;
 end
