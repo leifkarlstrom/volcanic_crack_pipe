@@ -29,12 +29,12 @@ Mc.z = z;
 % thermodynamically stable, which means the parameter M must be
 % non-negative.
 
-rho0     = 1000;
-rho1     = 2000;
+rho0     = 500;
+rho1     = 2200;
 Rhoalpha    = (log(rho1)-log(rho0))/Mc.L;
 
 Mc.rho = rho0*exp(Rhoalpha*(Mc.L-z)); % density
-Mc.c    = 700*ones(Mc.nz+1,1); % wave speed
+Mc.c    = 1000*ones(Mc.nz+1,1); % wave speed
 Mc.K    = Mc.rho.*Mc.c.^2; % bulk modulus
 Mc.Mg = Rhoalpha - Mc.rho*Mc.g./Mc.K; % the parameter M I defined in Part I paper.
 
@@ -44,7 +44,7 @@ Mc.deltarho = rho1-rho0;
 
 Mc.epsilon = 1;%.01; % the area ratio between the conduit and the lava lake.
 Mc.pT.A = 2e4; % pressure perturbation amplitude
-Mc.pT.T = .5; % pressure perturbation duration
+Mc.pT.T = 2.5; % pressure perturbation duration
 Mc.pT.t  = 5; % pressure perturbation center time
 Mc.G = @(t) Mc.pT.A*exp(-0.5*((t-Mc.pT.t)/Mc.pT.T)^2); % external force from the conduit.
 
@@ -55,7 +55,7 @@ if strcmp(Mc.BCtype,'quasistatic')
     %properties
     %assume sphere for now
     A_c = Mc.S(1);%cross sectional area of conduit
-    R_c = 700; %radius of spherical chamber
+    R_c = 1000; %radius of spherical chamber
     Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
 
     K_w = 3e9;% bulk modulus of wall rock

@@ -2,7 +2,7 @@ function [Mc] = setparameters(bgstate)
 
 %% define the material properties and discretization parameters.
 Mc.R  = 10;  % conduit radius
-Mc.L   = 600; % conduit length
+Mc.L   = 500; % conduit length
 Mc.nz = 2^7;  % number of grid points in z direction
 Mc.nr = 2^4;  % number of grid points in r direction
 Mc.order = 6; % order of accuracy in z direction
@@ -19,7 +19,7 @@ Mc.with_exsolution=false;
 % interface condition.
 Mc.interface_split=false;
 
-Mc.mu = 10*ones(Mc.nz+1, 1);
+Mc.mu = 100*ones(Mc.nz+1, 1);
 
 z = Mc.L/Mc.nz*[0:Mc.nz]';
 
@@ -29,12 +29,12 @@ Mc.z = z;
 % thermodynamically stable, which means the parameter M must be
 % non-negative.
 
-rho0     = 1000;
+rho0     = 2000;
 rho1     = 2000;
 Rhoalpha    = (log(rho1)-log(rho0))/Mc.L;
 
 Mc.rho = rho0*exp(Rhoalpha*(Mc.L-z)); % density
-Mc.c    = 1000*ones(Mc.nz+1,1); % wave speed
+Mc.c    = 700*ones(Mc.nz+1,1); % wave speed
 Mc.K    = Mc.rho.*Mc.c.^2; % bulk modulus
 Mc.Mg = Rhoalpha - Mc.rho*Mc.g./Mc.K; % the parameter M I defined in Part I paper.
 
@@ -55,10 +55,10 @@ if strcmp(Mc.BCtype,'quasistatic')
     %properties
     %assume sphere for now
     A_c = Mc.S(1);%cross sectional area of conduit
-    R_c = 700; %radius of spherical chamber
+    R_c = 1500; %radius of spherical chamber
     Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
 
-    K_w = 3e9;% bulk modulus of wall rock
+    K_w = 1e;% bulk modulus of wall rock
     nu_w = 0.25;% Poisson's ratio of wall rock
     %M.lambda_w = 3*M.K_w*M.nu_w/(1+M.nu_w); % lame constant of wall rock
     G_w = 3*K_w*(1-2*nu_w)/(2+2*nu_w);% shear modulus of rock wall rock  

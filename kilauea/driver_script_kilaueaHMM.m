@@ -25,9 +25,9 @@ Model = conduit_internal_g(Mc);
 
 %% time domain simulation.
 
-skip = 10; %only save output every "skip" steps to save memory
+skip = 1; %only save output every "skip" steps to save memory
 
-T = 300; %total time in sec
+T = 200; %total time in sec
 
 % time stepping
 use_imex = true; % a flag to choose if to use IMEX or not.

@@ -30,13 +30,13 @@ end
 
 subplot(4,1,4)
 hold off
-semilogx(out.periods*out.skip, out.spectrum, 'color', blue, 'linewidth', 1)
+loglog(out.periods*out.skip, out.spectrum, 'color', blue, 'linewidth', 1)
 % if strcmp(out.M.BCtype,'quasistatic')
 hold on
-semilogx(out.periods*out.skip, out.spectrum2, 'color', red, 'linewidth', 1)
+loglog(out.periods*out.skip, out.spectrum2, 'color', red, 'linewidth', 1)
 % end
 set(gca,'color',grey)
-xlim([.5 100])
+xlim([.1 100])
 grid on
 xlabel('Period (s)')
 ylabel('amplitude spectrum')
