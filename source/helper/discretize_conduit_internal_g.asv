@@ -76,7 +76,7 @@ A44 = -epsilon*M.g/c(end);%M.S/M.SL*
 % contribution from the SAT term of boundaries:
 
 
-if strcmp(M.BCtype, 'pressure') % this is p=0 bottom boundary
+if M.BCtype == 'pressure' % this is p=0 bottom boundary
     A12 = A12 + ...
               kron(-(SAT(1)/(rho(1)*c(1)))*(op.e0*op.e0'),er) + ...
               kron((SAT(end)/(rho(end)*c(end)))*(en*en'),er);
@@ -85,7 +85,7 @@ if strcmp(M.BCtype, 'pressure') % this is p=0 bottom boundary
     
     A22 = A22 - SAT(1)*(op.e0*op.e0') - SAT(end)*(en*en');
     A24 = A24 + epsilon * SAT(end)*M.g*rho(end)*en;
-elseif strcmp(M.BCtype,'quasistatic')
+elseif M.BCtype == 'quasistatic'
 %this is quasistatic reservervoir bottom boundary
     A12 = A12 + ...
               kron(-(SAT(1)/(rho(1)*c(1)))*(op.e0*op.e0'),er) + ...
@@ -102,7 +102,7 @@ elseif strcmp(M.BCtype,'quasistatic')
     A53 = sparse(1,nz);
     A54 = sparse(1,1);
     A55 = -M.alpha/(M.rho(1)*M.c(1));
-    A15 = SAT(1)/(M.rho(1)*M.c(1))*kron(op.e0,er);
+    A15 = SAT(1)/(M.rho(1)*M.c(1))*kron(op.e0,em);
     A25 = SAT(1)*op.e0;
     A35 = sparse(nz,1);
     A45 = sparse(1,1);
@@ -136,7 +136,7 @@ if M.interface_split
                         (SATm*eIm + SATp*eIp)*(Zp*eIm' + Zm*eIp')/(Zp+Zm);
 end
 
-if strcmp(M.BCtype , 'pressure')
+if M.BCtype == 'pressure'
 
     A1 = horzcat(A11,A12,A13,A14);
     A2 = horzcat(A21,A22,A23,A24);
@@ -151,7 +151,7 @@ if strcmp(M.BCtype , 'pressure')
                  SAT(end)*en, ...
                  spalloc(nz,1,1), ...
                  -1/(rho(end)*c(end)));    
-elseif strcmp(M.BCtype , 'quasistatic')
+elseif M.BCtype == 'quasistatic'
 
     A1 = horzcat(A11,A12,A13,A14,A15);
     A2 = horzcat(A21,A22,A23,A24,A25);
@@ -162,11 +162,10 @@ elseif strcmp(M.BCtype , 'quasistatic')
 
 Ae = A - Ai;
 
-% Array for pressure forcing with added dimension
+% Array for pressure forcing
 Fp = vertcat(kron(-(SAT(end)/(rho(end)*c(end)))*en,er), ...
              SAT(end)*en, ...
              spalloc(nz,1,1), ...
-             -1/(rho(end)*c(end)),...
-             spalloc(1,1,1));
+             -1/(rho(end)*c(end)));
 end
 

@@ -6,7 +6,6 @@ clear
 %
 source = '../source';
 addpath(genpath(source));
-
 %% define the material properties and discretization parameters.
 Mc.R  = 10;  % conduit radius
 Mc.L   = 600; % conduit length
@@ -160,7 +159,7 @@ end
 Model = conduit_internal_g(Mc);
 %% time domain simulation.
 CFL = 0.5;
-skip = 10;
+skip = 25;
 T = 200;
 use_imex = true; % a flag to choose if to use IMEX or not.
 plot_simu = false;

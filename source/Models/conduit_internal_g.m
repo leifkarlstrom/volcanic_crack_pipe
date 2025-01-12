@@ -66,16 +66,27 @@ classdef conduit_internal_g
     end
     
     function dim = dimensions(obj)
-        % dimension for vz, pz, h, hL.
-        dim = [obj.geom.nz*obj.geom.nr,...
-        obj.geom.nz,...
-        obj.geom.nz,...
-        1];
-          
+        
+        if strcmp(obj.M.BCtype,'quasistatic')
+            dim = [obj.geom.nz*obj.geom.nr,...
+            obj.geom.nz,...
+            obj.geom.nz,...
+            1,...
+            1];
+        else %assume its p==0
+            % dimension for vz, pz, h, hL.
+            dim = [obj.geom.nz*obj.geom.nr,...
+            obj.geom.nz,...
+            obj.geom.nz,...
+            1];
+        end
+        
+
     end
 
     function u = field(obj,U,num)
-        % return the solution, in the order of [1, 2, 3, 4] = [vz, pz, h, hL]
+        % return the solution, in the order of [1, 2, 3, 4] = [vz, pz, h,hL]
+        % (or  [1, 2, 3, 4, 5] = [vz, pz, h, hL, p_c] depending on BC
       indices = field_indices(obj.dimensions(),num);
       u = U(indices);
     end
