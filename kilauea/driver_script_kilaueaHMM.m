@@ -23,11 +23,11 @@ bgstate = 'parameterized'; %LK note: not using this right now
 %build the model 
 Model = conduit_internal_g(Mc);
 
-%% time domain simulation.
-
 skip = 1; %only save output every "skip" steps to save memory
 
-T = 200; %total time in sec
+T = 250; %total time in sec
+
+eigmodeonly = 1; %look only at eigenmodes, or do full timestepping
 
 % time stepping
 use_imex = true; % a flag to choose if to use IMEX or not.
@@ -38,6 +38,7 @@ dt = CFL*hmin/cmax;
 nt = ceil(T/dt); %total number of time steps
 time  = [skip:skip:nt]*dt;
 
+
 if ~ use_imex
     A = Model.Ae + Model.Ai;
     % this matrix A is what you need for analyzing the eigenmode and
@@ -46,9 +47,6 @@ else
     [L,U,p,q,B] = imex_ark4_get_lu(Model.Ai,dt);
     A = Model.Ae;
 end
-
-fun = @(u,t) A*u + Model.Fp(:,1)*Model.M.G(t);
-tic
 
 % Storage arrays
 %ICs
@@ -59,6 +57,33 @@ out.dt = dt;
 out.skip = skip;
 
 out.M = Mc;
+
+
+if eigmodeonly
+    %if we are just looking at the resonant T and Q, we can skip the
+    %timestepping and just look at eigenvalues of the RHS
+
+[evec,e] = eig(full(A));
+e = diag(e);
+
+%find eigenvalues that match target range of imag and real part
+mask = abs(imag(e))<20&real(e)>-5&abs(imag(e))>5e-2;
+LF = find(mask);
+
+T = 2*pi./imag(e(LF))
+Q = abs(imag(e(LF))./(2.*real(e(LF))))
+
+figure
+%hold on
+plot(real(e),imag(e),'o')
+ylabel('imaginary part of (s)')
+xlabel('real part of (s)')
+%keyboard
+
+else
+
+fun = @(u,t) A*u + Model.Fp(:,1)*Model.M.G(t);
+tic
 
 for i=1:nt
     t = (i-1)*dt;
@@ -132,6 +157,8 @@ plotsolutionfields(out)
 %[peaks, peak_locs]=findpeaks(spectrum,'MinPeakProminence',1.5);
 [peaks, peak_locs] = findpeaks(spectrum2, 'MinPeakHeight', 5); % Adjust threshold as needed
 disp(['peaks in spectrum ' num2str(periods(peak_locs)) ' sec'])
+
+end
 
 [CRout] = CR_rom_crozierkarlstrom(out);
 

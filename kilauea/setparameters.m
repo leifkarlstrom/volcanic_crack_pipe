@@ -19,7 +19,7 @@ Mc.with_exsolution=false;
 % interface condition.
 Mc.interface_split=false;
 
-Mc.mu = 100*ones(Mc.nz+1, 1);
+Mc.mu = 10*ones(Mc.nz+1, 1);
 
 z = Mc.L/Mc.nz*[0:Mc.nz]';
 
