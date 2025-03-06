@@ -21,7 +21,7 @@ addpath(genpath(source));
 
 %call script to specify conduit parameters, based on BGstate
 [Mc] = setparameters();
-keyboard
+
 %build the model 
 Model = conduit_internal_g(Mc);
 
