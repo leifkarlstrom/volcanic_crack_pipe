@@ -1,5 +1,8 @@
 function [Fv,FTs,Iv,spectrum] = compute_fft(amplitude,dt)
 
+% this function is used for plotting, not predicting T and Q (we taper here)
+% use post_process.m for spectral domain T and Q predictions
+
 %compute fft and spectrum
 L = length(amplitude);                                           % length of signal
 
@@ -9,7 +12,7 @@ len = round(.05*L);
 
 Fs = 1/dt;                                              % Make Up Sampling Frequency & Units (Hz)
 Fn = Fs/2;                                              % Nyquist Frequency
-FTs =  fft(amplitude - mean(amplitude))/L;              % Subtract Mean
+FTs = fft(amplitude - mean(amplitude))/L;              % Subtract Mean
 Fv = linspace(0, 1, fix(L/2)+1)*Fn;                     % Frequency Vector
 Iv = 1:numel(Fv);                                       % Index Vector
 

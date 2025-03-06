@@ -8,7 +8,7 @@ green = "#BCBF65";
 blue = "#51A6A6";
 pink = "#BF7582";
 
-figure(1);
+figure(3);
 subplot(4,1,1);
 plot(out.t,out.h,'color', orange, 'linewidth', 1.5);xlabel('time');ylabel('lava lake height (m)')
 set(gca,'color',grey)
@@ -36,7 +36,12 @@ hold on
 loglog(out.periods*out.skip, out.spectrum2, 'color', red, 'linewidth', 1)
 % end
 set(gca,'color',grey)
-xlim([.1 100])
+% set custom tick labels
+xticks([0.1 1 10 50]) % Define tick positions
+xticklabels({'0.1', '1', '10', '50'}) % Define displayed labels
+% Set x-axis limits
+xlim([0.1 50])
+% xlim([.1 100])
 grid on
 xlabel('Period (s)')
 ylabel('amplitude spectrum')
@@ -55,7 +60,7 @@ legend('Chamber pressure','Conduit halfway down')
 % plot(out.M.c,out.z)
 % xlabel('sound speed (m/s)')
 
-figure(3)
+figure(4)
 pcolor(out.t,out.z,out.p);shading flat
 xlabel('time (s)'); ylabel('depth')
 title('pressure (Pa)')
