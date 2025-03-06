@@ -23,7 +23,7 @@ function bg = magmastatic(params)
 %% 
 
 % load lookup table
-data = load('NoExsolve_H2Ofrac_0.3_1155.0C_ntot_0.005.mat');
+data = load('NoExsolve_H2Ofrac_0.3_1155.0C_ntot_0.01.mat');
 
 % convert Temp celcius to temp kelvin
 params.T = params.T + 273.15;
