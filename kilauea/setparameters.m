@@ -1,7 +1,7 @@
 function [Mc] = setparameters(bgstate)
 
 %% define the material properties and discretization parameters.
-Mc.R  = 10;  % conduit radius
+Mc.R  = 5;  % conduit radius
 Mc.L   = 600; % conduit length
 Mc.nz = 2^7;  % number of grid points in z direction
 Mc.nr = 2^4;  % number of grid points in r direction
@@ -19,7 +19,7 @@ Mc.with_exsolution=false;
 % interface condition.
 Mc.interface_split=false;
 
-Mc.mu = 10*ones(Mc.nz+1, 1);
+Mc.mu = 50*ones(Mc.nz+1, 1);
 
 z = Mc.L/Mc.nz*[0:Mc.nz]';
 

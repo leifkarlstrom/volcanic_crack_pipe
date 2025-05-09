@@ -1,30 +1,31 @@
 function [CRout] = CR_rom_crozierkarlstrom(out)
+
 %evaluate natural frequency and quality factor of conduit-reservoir mode
-%based on the magmastatic model of Crozier and Karlstrom 2022 SciAdv
+%based on the magmastatic model:
+
+%Crozier, J., & Karlstrom, L. (2022). Evolving magma temperature and 
+% volatile contents over the 2008–2018 summit eruption of Kīlauea Volcano. 
+% Science Advances, 8(22), eabm4310.
 
 Pm.H = out.M.L; %length of the conduit 
-
-% Pm.dz = out.M.dz;
-% Pm.rho = out.M.rho;%1000*ones(1,N+1); %density as fctn of depth z kg/m3
 
 N = 1e4; %number of points desired in zvec
 Pm.dz = Pm.H/(N -1) ;
 z = linspace(0,Pm.H,N); %generate z vec with custom dz
 oldz = out.z; 
-Pm.rho = interp1(oldz,out.M.rho,z);
 
+Pm.rho = interp1(oldz,out.M.rho,z);
 Pm.drhodz = gradient(Pm.rho,Pm.dz); %density gradient 
+
 Pm.mu = interp1(oldz,out.M.mu,z);%viscosity as fctn of depth z in Pas
 
-%parameter definitions for conduit (need to be consistent with simulation!)
 Pm.g = out.M.g; %gravity
 
 Pm.rad = out.M.R; %conduit radius as fct of z based on input
-%Pm.rad = out.M.R*ones(size(z));%interp1(oldz,out.M.R,z); %interpolate to new zvec
 
 Pm.Ct = out.M.Ct;%total storativity of reservoir (magma+elastic)
 
-Pm.theta = 90; %dip angle (assumed constant in z) of conduit
+Pm.theta = 90; %dip angle (assumed constant in z) of conduit from reservoir
 
 %evaluate the constants needed to define properties of damped harmonic
 %oscillator (the reduced order model of Crozier and Karlstrom 2022)
@@ -37,8 +38,6 @@ DeltaRho = Pm.rho(end)-Pm.rho(1); %density at top of column minus base
 %average density 
 rhoavg = 1/Pm.H*trapz(Pm.dz,Pm.rho);%0.5*(Pm.rho(1)+Pm.rho(end));%mean(Pm.rho);
 %inviscid resonant period
-% Tinvis = 2*pi*sqrt(Pm.H*mean(Pm.rho)/ ...
-%     ((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct));
 Tinvis = 2*pi*sqrt(Pm.H*rhoavg/ ...
     ((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct));
 
