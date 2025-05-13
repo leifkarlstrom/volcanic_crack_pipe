@@ -3,7 +3,7 @@ function [Mc] = setparameters()
 %% define the material properties and discretization parameters.
 Mc.R  = 10;  % conduit radius, m
 Mc.L   = 700; % conduit length, m
-Mc.nz = 2^8;  % number of grid points in z direction
+Mc.nz = 2^9;  % number of grid points in z direction
 Mc.nr = 2^4;  % number of grid points in r direction
 Mc.order = 8; % order of accuracy in z direction
 Mc.order_r = 8; % order of accuracy in r direction
@@ -35,7 +35,7 @@ Mc.z = z;
 bgstate = 'wilde_magmastatic';
 
 Mc.epsilon = 1;%.01; % the area ratio between the conduit and the lava lake.
-Mc.pT.A = 2e5; % pressure perturbation amplitude
+Mc.pT.A = 2e5; % pressure perturbation amplitude %2e5
 Mc.pT.T = 1.5; % pressure perturbation duration
 Mc.pT.t  = 5; % pressure perturbation center time
 Mc.G = @(t) Mc.pT.A*exp(-0.5*((t-Mc.pT.t)/Mc.pT.T)^2); % external force from the conduit.
@@ -69,12 +69,14 @@ switch bgstate
         
         % prescribe total exsolved gas (H2O + CO2) kinematically
         %   specify n at top of lake, top of conduit, bottom of conduit
-        params.ngas_laketop = 0.004;  % mass fraction (0.01 mass frac = 1% wt%)        
-        params.ngas_condtop = 0.003;
-        params.ngas_condbot = 0.00;
+        params.ngas_laketop = 0.003;  % mass fraction (0.01 mass frac = 1% wt%) 
+        params.ngas_lakebot = 0.003;
+        params.ngas_condtop = 0.002;
+        params.ngas_condbot = 0.001;
         
         params.Lcol = Mc.L;           % column height, m
         params.Hlake = 300;           % lake depth, m
+        Mc.Hlake = params.Hlake; 
         params.Rres = Mc.Rres;        % reservoir radius, m
         params.dz = Mc.nz;            % spatial steps, m (KW note: not sure if this variable is being used in magmastatic)
         
@@ -101,7 +103,11 @@ switch bgstate
         Mc.rho = bg.rhovec; % density
         Mc.c    = bg.cvec; % soundspeed (m/s)
         Mc.K    = Mc.rho.*Mc.c.^2; % melt bulk mod (Pa)
-
+        
+        %save out ngas intervals
+        Mc.ngas_laketop = params.ngas_laketop; 
+        Mc.ngas_condtop = params.ngas_condtop; 
+        Mc.ngas_condbot = params.ngas_condbot;
 
         %density difference and average over L
         Mc.rhobar = 1/Mc.L * trapz(z(2)-z(1),Mc.rho);

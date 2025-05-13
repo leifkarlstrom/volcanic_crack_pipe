@@ -22,12 +22,23 @@ addpath(genpath(source));
 %call script to specify conduit parameters, based on BGstate
 [Mc] = setparameters();
 
+% n= Mc.n_gas;
+% c= Mc.c;
+% z=Mc.z;
+% n1 = Mc.ngas_laketop;
+% n2 = params.ngas_lakebot;
+% n3 = Mc.ngas_condtop;
+% n4 = Mc.ngas_condbot;
+% L = Mc.L;
+% Hlake = Mc.Hlake;
+
+
 %build the model 
 Model = conduit_internal_g(Mc);
 
 skip = 1; %only save output every "skip" steps to save memory
 
-T = 250; %total time in sec
+T = 300; %total time in sec
 
 eigmodeonly = 1; %look only at eigenmodes, or do full timestepping
 
@@ -65,15 +76,25 @@ if eigmodeonly
     %if we are just looking at the resonant T and Q, we can skip the
     %timestepping and just look at eigenvalues of the RHS
 
+% evec has all of the spatial information (these are the eigenvectors)
 [evec,e] = eig(full(A));
 e = diag(e);
 
 %find eigenvalues that match target range of imag and real part
 mask = abs(imag(e))<20 & real(e)>-5 & abs(imag(e))>5e-2;
 LF = find(mask);
+evec = evec( : , LF);
 
 T = 2*pi./imag(e(LF));
 Q = abs(imag(e(LF))./(2.*real(e(LF))));
+
+% just keep the positive ones
+mask = T>0;
+indices = find(mask);
+
+T = T(indices);
+Q = Q(indices);
+evec = evec(: , indices);
 
 
 figure
@@ -141,29 +162,42 @@ for i=1:nt
 end
 
 %% Now we have run the model, now do post-processing
-%if strcmp(Mc.BCtype,'quasistatic')
+if strcmp(Mc.BCtype,'quasistatic')
 [Fv,FTs,Iv,spectrum] = compute_fft(out.p_c,out.dt);
-%end
+end
 %in conduit 
 [Fv2,FTs2,Iv2,spectrum2] = compute_fft(out.p(2,:),out.dt);
 
-% Define the frequency domain f and plot the single-sided amplitude spectrum P1
-periods = 1./Fv2;
+%Define the frequency domain f and plot the single-sided amplitude spectrum P1
+periods = 1./Fv;
 out.periods = periods;
 out.spectrum = spectrum;
 out.spectrum2 = spectrum2;
 
-% plotsolutionfields(out)
+plotsolutionfields(out)
 
 
 % Make T and Q estimations based on model output
-% [T_condres, Q_condres, T_ac, Q_ac] = post_process(out.t,out.p_c,out.dt);
+[T_condres, Q_condres, T_ac, Q_ac] = post_process(out.t,out.p_c,out.dt);
 
 % Identify peaks in spectrum
-%[peaks, peak_locs]=findpeaks(spectrum,'MinPeakProminence',1.5);
-%[peaks, peak_locs] = findpeaks(spectrum2, 'MinPeakHeight', 5); % Adjust threshold as needed
+% [peaks, peak_locs]=findpeaks(spectrum,'MinPeakProminence',1.5);
+% [peaks, peak_locs] = findpeaks(spectrum2, 'MinPeakHeight', 5); % Adjust threshold as needed
 % [peaks, peak_locs] = findpeaks(spectrum, 'SortStr','descend'); % Adjust threshold as needed
 % disp(['peaks in spectrum ' num2str(periods(peak_locs)) ' sec'])
+% %plot it
+% figure(3)
+% subplot(2,1,1)
+% plot(out.t,out.p_c)
+% xlabel('Time (s)', 'FontSize', 16)
+% ylabel('p_c', 'FontSize', 16)
+% subplot(2,1,2)
+% findpeaks(spectrum,Fv,'Annotate','extents')
+% xlabel('freq (Hz)', 'FontSize', 16)
+% ylabel('amplitude', 'FontSize', 16)
+% %semilogx(Fv, abs(spectrum),Fv, detrend(abs(spectrum)))
+% set(gca,'Xscale','log')
+% hold on
 
 end
 
