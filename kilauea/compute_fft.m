@@ -7,8 +7,8 @@ function [Fv,FTs,Iv,spectrum] = compute_fft(amplitude,dt)
 L = length(amplitude);                                           % length of signal
 
 %taper end with cosine for 8% of L
-len = round(.05*L);
-%amplitude(L-len+1:L)=cos([1:len] * pi/2 /len).*amplitude(L-len+1:L);
+% len = round(.05*L);
+% amplitude(L-len+1:L)=cos([1:len] * pi/2 /len).*amplitude(L-len+1:L);
 
 Fs = 1/dt;                                              % Make Up Sampling Frequency & Units (Hz)
 Fn = Fs/2;                                              % Nyquist Frequency

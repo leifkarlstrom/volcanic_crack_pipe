@@ -79,28 +79,41 @@ Q_ac = Q_ac(1);
 % findpeaks(spectrum,Fv,'Annotate','extents')
 % %semilogx(Fv, abs(spectrum),Fv, detrend(abs(spectrum)))
 % set(gca,'Xscale','log')
+[Fv_full,FTs,Iv,spectrum_full] = compute_fft(amplitude,dt);
 
+% the peaks will be listed in order of spectral amp
+[peaks, locs, widths, prominence]=findpeaks(spectrum,'SortStr','descend');
 
 % disp('---------------------------------------------------------------------------')
 % disp(['predicted period for conduit-reservoir mode is: ' num2str(T_condres)]) 
 % disp(['predicted quality factor for conduit-reservoir mode is: ' num2str(Q_condres)]) 
 % disp('---------------------------------------------------------------------------')
-% disp(['predicted period for acoustic mode is: ' num2str(T_ac)]) 
-% disp(['predicted quality factor for acoustic mode is: ' num2str(Q_ac)])
+disp(['predicted period for acoustic mode is: ' num2str(T_ac)]) 
+disp(['predicted quality factor for acoustic mode is: ' num2str(Q_ac)])
 % disp('---------------------------------------------------------------------------')
 % 
 %plot it
-subplot(2,1,1)
+figure(4)
+subplot(3,1,1)
 plot(t_ac,amp_ac)
+plot(t,amplitude)
 xlabel('Time (s)', 'FontSize', 16)
 ylabel('Amplitude (m)', 'FontSize', 16)
 title('Signal', 'FontSize', 18)
-subplot(2,1,2)
-findpeaks(spectrum,Fv,'Annotate','extents')
-xlabel('Time (s)', 'FontSize', 16)
+subplot(3,1,2)
+findpeaks(spectrum_full,Fv_full,'Annotate','extents')
+xlabel('freq (Hz)', 'FontSize', 16)
 ylabel('Amplitude (m)', 'FontSize', 16)
 %semilogx(Fv, abs(spectrum),Fv, detrend(abs(spectrum)))
 set(gca,'Xscale','log')
+set(gca,'Yscale','log')
+subplot(3,1,3)
+findpeaks(spectrum,Fv,'Annotate','extents')
+xlabel('freq (Hz)', 'FontSize', 16)
+ylabel('Amplitude (m)', 'FontSize', 16)
+%semilogx(Fv, abs(spectrum),Fv, detrend(abs(spectrum)))
+set(gca,'Xscale','log')
+set(gca,'Yscale','log')
 hold on
 % xline(omega/(2*pi))
 

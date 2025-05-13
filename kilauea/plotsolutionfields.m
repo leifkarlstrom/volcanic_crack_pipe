@@ -60,7 +60,7 @@ legend('Chamber pressure','Conduit halfway down')
 % plot(out.M.c,out.z)
 % xlabel('sound speed (m/s)')
 
-figure(4)
+figure(5)
 pcolor(out.t,out.z,out.p);shading flat
 xlabel('time (s)'); ylabel('depth')
 title('pressure (Pa)')

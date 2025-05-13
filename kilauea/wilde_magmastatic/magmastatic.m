@@ -23,25 +23,27 @@ function bg = magmastatic(params)
 %% 
 
 % load lookup table
-data = load('NoExsolve_H2Ofrac_0.3_1155.0C_ntot_0.01.mat');
+params.gas_data = load('NoExsolve_H2Ofrac_0.3_1155.0C_ntot_0.01.mat');
+params.melt_data = load('NoExsolve_H2Ofrac_1.0_1155.0C_ntot_0.0001_meltdensity_meltviscosity_only.mat');
+
 
 % convert Temp celcius to temp kelvin
 params.T = params.T + 273.15;
 
 % define depth vector (full column)
-zvec_col = params.z;
+zvec_col = params.z';
+% we will make all depth profiles 1 x N for now and reorient them at the end
 params.zvec_col = zvec_col;
 
 %% BUILD n_gas VECTOR
 % we are not using an exsolution model here, prescribe n_gas kinematically
     % right now, z=0 is lake top, z=L is condbot 
     % this will be flipped at the end to be consistent with Chao's model
-
+    
 % z values consistent with n_gas piecewise values
-z_known = [0, params.Hlake, params.Lcol]; 
+z_known = [0, params.Hlake, params.Hlake + (zvec_col(2)-zvec_col(1)), params.Lcol]; 
 % corresponding ngas values
-n_known = [params.ngas_laketop, params.ngas_condtop, params.ngas_condbot];
-
+n_known = [params.ngas_laketop, params.ngas_lakebot, params.ngas_condtop, params.ngas_condbot];
 
 % interpolate to get a smooth piecewise ngas profile
 % in the future, it might be better to do a linear interp and then smooth
@@ -50,16 +52,15 @@ ngas_vec = interp1(z_known, n_known, zvec_col, 'pchip');
 
 params.ngas_vec = ngas_vec;
 
-
 %% solve RHS of EOS
 options = odeset('RelTol',1e-8,'AbsTol',1e-8);
-sol = ode45(@(t,y) RHS(t,y,params, data),[0 params.Lcol],[params.p_atm],options);      % solve ODE
+sol = ode45(@(t,y) RHS(t,y,params),[0 params.Lcol],[params.p_atm],options);      % solve ODE
 
 %evaluate solution and derivatives at high order
 [pvec,dPdz]=deval(zvec_col,sol); 
 
 % re-orient pvec
-pvec = pvec';
+% pvec = pvec';
 
 % % initialize depth vectors
 % rhovec_gas = NaN(length(pvec),1);
@@ -69,12 +70,12 @@ pvec = pvec';
 
 % extract values from lookup table
 
-pressure_Pa_table = data.Pressure_Pa;
-melt_density_table = data.rho_melt_kgm3; 
-gas_density_table = data.rho_gas_kgm3; 
-melt_viscosity_table = data.melt_viscosity_Pas;
-v_table = data.bulk_volume_cm3;
-dvdp_table = data.dvdp;
+pressure_Pa_table = params.gas_data.Pressure_Pa;
+melt_density_table = params.melt_data.rho_melt_kgm3; 
+gas_density_table = params.gas_data.rho_gas_kgm3; 
+melt_viscosity_table = params.melt_data.melt_viscosity_Pas;
+% v_table = params.gas_data.bulk_volume_cm3;
+% dvdp_table = params.gas_data.dvdp;
 
 % we need the original P values for interpolation
 P_Pa_range = pressure_Pa_table(1:end); % Pa
@@ -86,8 +87,8 @@ melt_viscosities_lookup = melt_viscosity_table(1:end); % Pa s
 
 % NOTE: this v and dvdp is taken from alphamelts and is not
 % consistent with this n_gas profile
-v_lookup = v_table(1:end); % cm3
-dvdp_lookup = dvdp_table(1:end);
+% v_lookup = v_table(1:end); % cm3
+% dvdp_lookup = dvdp_table(1:end);
 
 
 % interpolate lookup table to find rho for a given P
@@ -96,8 +97,8 @@ rhovec_bulk = nan(size(pvec));
 rhovec_melt = nan(size(pvec));
 rhovec_gas = nan(size(pvec));
 muvec_melt = nan(size(pvec));
-v_vec = nan(size(pvec));
-dvdp_vec = nan(size(pvec));
+% v_vec = nan(size(pvec));
+% dvdp_vec = nan(size(pvec));
 
 % loop over the pressure values
 for i = 1:length(pvec)
@@ -105,8 +106,8 @@ for i = 1:length(pvec)
     rhovec_melt(i) = interp1(P_Pa_range, melt_densities_lookup, pvec(i), 'linear');
     rhovec_gas(i) = interp1(P_Pa_range, gas_densities_lookup, pvec(i), 'linear');
     muvec_melt(i) = interp1(P_Pa_range, melt_viscosities_lookup, pvec(i), 'linear');
-    v_vec(i) = interp1(P_Pa_range, v_lookup, pvec(i), 'linear');
-    dvdp_vec(i) = interp1(P_Pa_range, dvdp_lookup, pvec(i), 'linear');
+    % v_vec(i) = interp1(P_Pa_range, v_lookup, pvec(i), 'linear');
+    % dvdp_vec(i) = interp1(P_Pa_range, dvdp_lookup, pvec(i), 'linear');
 
     % calculate bulk density depth vector
     if ngas_vec(i) > 0
@@ -138,13 +139,13 @@ cvec = sqrt((gradient(rhovec_bulk)./gradient(pvec)).^(-1));
 % save background state
 % in Chao's model, z=0 is bottom of column, so we flip all of these
 % profiles here
-bg.zvec_col = zvec_col;
-bg.pvec = flip(pvec);
-bg.rhovec = flip(rhovec_bulk);
-bg.muvec = flip(muvec);
-bg.cvec = flip(cvec);
-bg.rhovec_melt = flip(rhovec_melt);
-bg.ngas_vec = flip(ngas_vec);
+bg.zvec_col = zvec_col';
+bg.pvec = flip(pvec)';
+bg.rhovec = flip(rhovec_bulk)';
+bg.muvec = flip(muvec)';
+bg.cvec = flip(cvec)';
+bg.rhovec_melt = flip(rhovec_melt)';
+bg.ngas_vec = flip(ngas_vec)';
 % bg.K_vec = flip(K_vec);
 
 %% plot background state %%
@@ -163,10 +164,15 @@ ylabel('height in column m', "FontSize", 12);
 xlabel('bulk density kg/m3', "FontSize", 12);
 grid
 % set(gca, 'YDir','reverse')
+% 
+% subplot(1,4,2)
+% plot(bg.pvec, bg.zvec_col, 'color', orange, 'LineWidth', 1.5)
+% xlabel('pressure Pa', "FontSize", 12);
+% grid
 
 subplot(1,4,2)
-plot(bg.pvec, bg.zvec_col, 'color', orange, 'LineWidth', 1.5)
-xlabel('pressure Pa', "FontSize", 12);
+plot(bg.rhovec .* bg.cvec, bg.zvec_col, 'color', orange, 'LineWidth', 1.5)
+xlabel('Impedance', "FontSize", 12);
 grid
 
 subplot(1,4,3)
@@ -175,20 +181,23 @@ xlabel('n_{gas}', "FontSize", 12);
 grid
 
 subplot(1,4,4)
+
 plot(bg.cvec, bg.zvec_col, 'color', blue, 'LineWidth', 1.5)
+
 xlabel('soundspeed m/s', "FontSize", 12);
 grid
+
 
 end
 
 %% RHS ODE, solve for pressure as a function of z %%
 
-function RHS = RHS(t,y,params, data)
+function RHS = RHS(t,y,params)
 
 % unpack data struture
-pressure_Pa_table = data.Pressure_Pa;
-melt_density_table = data.rho_melt_kgm3; 
-gas_density_table = data.rho_gas_kgm3; 
+pressure_Pa_table = params.gas_data.Pressure_Pa;
+melt_density_table = params.melt_data.rho_melt_kgm3; 
+gas_density_table = params.gas_data.rho_gas_kgm3; 
 
 % extract table values
 P_Pa_range = pressure_Pa_table(1:end);
