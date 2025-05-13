@@ -1,9 +1,10 @@
 function [Mc] = setparameters()
 
 %% define the material properties and discretization parameters.
-Mc.R  = 10;  % conduit radius, m
-Mc.L   = 700; % conduit length, m
-Mc.nz = 2^9;  % number of grid points in z direction
+
+Mc.R  = 5;  % conduit radius
+Mc.L   = 600; % conduit length
+Mc.nz = 2^7;  % number of grid points in z direction
 Mc.nr = 2^4;  % number of grid points in r direction
 Mc.order = 8; % order of accuracy in z direction
 Mc.order_r = 8; % order of accuracy in r direction
@@ -23,7 +24,6 @@ Mc.with_exsolution=false;
 % depth.  You need to specify the jump index for the code to handle the
 % interface condition.
 Mc.interface_split=false;
-
 
 z = Mc.L/Mc.nz*[0:Mc.nz]';
 

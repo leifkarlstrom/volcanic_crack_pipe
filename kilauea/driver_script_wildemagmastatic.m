@@ -51,7 +51,6 @@ dt = CFL*hmin/cmax;
 nt = ceil(T/dt); %total number of time steps
 time  = [skip:skip:nt]*dt;
 
-
 if ~ use_imex
     A = Model.Ae + Model.Ai;
     % this matrix A is what you need for analyzing the eigenmode and
@@ -71,13 +70,12 @@ out.skip = skip;
 
 out.M = Mc;
 
-
 if eigmodeonly
     %if we are just looking at the resonant T and Q, we can skip the
     %timestepping and just look at eigenvalues of the RHS
 
 % evec has all of the spatial information (these are the eigenvectors)
-[evec,e] = eig(full(A));
+[evec,e] = eig(full(Model.Ae + Model.Ai));
 e = diag(e);
 
 %find eigenvalues that match target range of imag and real part
@@ -103,6 +101,26 @@ plot(real(e),imag(e),'o')
 ylabel('imaginary part of (s)')
 xlabel('real part of (s)')
 %keyboard
+
+%extract dimensions of the model variables: 
+% [velocity (not xsectionally avg), pressure, displacement, surface height, chamber pressure]
+% [vz, pz, h, hL, p_c]
+Dims = Model.dimensions(); 
+
+for i=1:length(T)
+    lbl{i} = ['T = ' num2str(round(T(i)*10)/10) ', Q = ' num2str(round(Q(i)*10)/10)]; 
+end
+
+figure
+subplot(2,1,1)
+plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+ylabel('Re[pressure eig vec]')
+xlabel('distance (m)')
+subplot(2,1,2)
+plot(Model.M.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+ylabel('Im[pressure eig vec]')
+xlabel('distance (m)')
+legend(lbl)
 
 else
 

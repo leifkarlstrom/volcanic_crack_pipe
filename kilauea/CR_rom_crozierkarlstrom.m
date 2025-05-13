@@ -1,6 +1,6 @@
 function [CRout] = CR_rom_crozierkarlstrom(out)
 %evaluate natural frequency and quality factor of conduit-reservoir mode
-%based on the magmastatic model of Crozier and Karlstrom 2022
+%based on the magmastatic model of Crozier and Karlstrom 2022 SciAdv
 
 Pm.H = out.M.L; %length of the conduit 
 
