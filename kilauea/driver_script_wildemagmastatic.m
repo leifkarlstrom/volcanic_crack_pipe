@@ -38,7 +38,7 @@ Model = conduit_internal_g(Mc);
 
 skip = 1; %only save output every "skip" steps to save memory
 
-T = 300; %total time in sec
+T = 400; %total time in sec
 
 eigmodeonly = 1; %look only at eigenmodes, or do full timestepping
 
@@ -77,11 +77,18 @@ if eigmodeonly
 % evec has all of the spatial information (these are the eigenvectors)
 [evec,e] = eig(full(Model.Ae + Model.Ai));
 e = diag(e);
+if isempty(e)
+    warning('No eignevalues.');
+end
 
 %find eigenvalues that match target range of imag and real part
 mask = abs(imag(e))<20 & real(e)>-5 & abs(imag(e))>5e-2;
 LF = find(mask);
-evec = evec( : , LF);
+% evec = evec( : , LF);
+
+if isempty(imag(e(LF)))
+    warning('No eignevalues in range.');
+end
 
 T = 2*pi./imag(e(LF));
 Q = abs(imag(e(LF))./(2.*real(e(LF))));
@@ -93,7 +100,8 @@ indices = find(mask);
 T = T(indices);
 Q = Q(indices);
 evec = evec(: , indices);
-
+display(T);
+display(Q);
 
 figure
 %hold on
@@ -111,6 +119,8 @@ for i=1:length(T)
     lbl{i} = ['T = ' num2str(round(T(i)*10)/10) ', Q = ' num2str(round(Q(i)*10)/10)]; 
 end
 
+% This plot is giving an error, need to fix #KW
+% LF exceeds the array limit
 figure
 subplot(2,1,1)
 plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
