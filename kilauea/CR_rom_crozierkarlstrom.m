@@ -28,43 +28,50 @@ Pm.theta = 90; %dip angle (assumed constant in z) of conduit
 
 %evaluate the constants needed to define properties of damped harmonic
 %oscillator (the reduced order model of Crozier and Karlstrom 2022)
-[c1,c2,c3,Omega] = evaluateparams(Pm);
 
-%note! angular frequency is related to frequency by factor of 2pi!
-Tvis = 2*pi/Omega;
+try
+    [c1,c2,c3,Omega] = evaluateparams(Pm);
 
-DeltaRho = Pm.rho(end)-Pm.rho(1); %density at top of column minus base
-%average density 
-rhoavg = 1/Pm.H*trapz(Pm.dz,Pm.rho);%0.5*(Pm.rho(1)+Pm.rho(end));%mean(Pm.rho);
-%inviscid resonant period
-% Tinvis = 2*pi*sqrt(Pm.H*mean(Pm.rho)/ ...
-%     ((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct));
-Tinvis = 2*pi*sqrt(Pm.H*rhoavg/ ...
-    ((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct));
-
-%fully developed resonant period
-Tfd = 2*pi./sqrt(((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct)./(Pm.H*rhoavg) - ...
-    16*mean(Pm.mu).^2/(Pm.rad(1)^4*rhoavg^2));
-
-lambda = 4*mean(Pm.mu)/(Pm.rad(1)^2*rhoavg);
-
-%quality factor
-Q = Omega*c1/c2;
-
-%fully developed Quality factor
-Qfd = Pm.rad(1)^2 * rhoavg/(8*mean(Pm.mu)) * ...
-    sqrt((Pm.g*(Pm.rho(end)-DeltaRho)+ pi*Pm.rad(1)^2/Pm.Ct)/(Pm.H*rhoavg) - ...
-    16*mean(Pm.mu)^2/(Pm.rad(1)^4*rhoavg^2));
-
-disp(['Conduit-Reservoir period is ' num2str(Tvis) ' sec'])
-disp(['CR Quality factor is ' num2str(Q)])
-
-disp(['For reference, inviscid resonant period from Liang is ' num2str(Tinvis) ' sec'])
-disp(['For reference, fully developed flow resonant period is ' num2str(Tfd) ' sec'])
-% disp(['For reference, fully developed Q is ' num2str(Qfd) ])
-
-CRout.T = Tvis;
-CRout.Q = Q;
+    %note! angular frequency is related to frequency by factor of 2pi!
+    Tvis = 2*pi/Omega;
+    
+    DeltaRho = Pm.rho(end)-Pm.rho(1); %density at top of column minus base
+    %average density 
+    rhoavg = 1/Pm.H*trapz(Pm.dz,Pm.rho);%0.5*(Pm.rho(1)+Pm.rho(end));%mean(Pm.rho);
+    %inviscid resonant period
+    % Tinvis = 2*pi*sqrt(Pm.H*mean(Pm.rho)/ ...
+    %     ((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct));
+    Tinvis = 2*pi*sqrt(Pm.H*rhoavg/ ...
+        ((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct));
+    
+    %fully developed resonant period
+    Tfd = 2*pi./sqrt(((Pm.rho(end)-DeltaRho)*Pm.g+pi*Pm.rad(1)^2/Pm.Ct)./(Pm.H*rhoavg) - ...
+        16*mean(Pm.mu).^2/(Pm.rad(1)^4*rhoavg^2));
+    
+    lambda = 4*mean(Pm.mu)/(Pm.rad(1)^2*rhoavg);
+    
+    %quality factor
+    Q = Omega*c1/c2;
+    
+    %fully developed Quality factor
+    Qfd = Pm.rad(1)^2 * rhoavg/(8*mean(Pm.mu)) * ...
+        sqrt((Pm.g*(Pm.rho(end)-DeltaRho)+ pi*Pm.rad(1)^2/Pm.Ct)/(Pm.H*rhoavg) - ...
+        16*mean(Pm.mu)^2/(Pm.rad(1)^4*rhoavg^2));
+    
+    disp(['Conduit-Reservoir period is ' num2str(Tvis) ' sec'])
+    disp(['CR Quality factor is ' num2str(Q)])
+    
+    disp(['For reference, inviscid resonant period from Liang is ' num2str(Tinvis) ' sec'])
+    disp(['For reference, fully developed flow resonant period is ' num2str(Tfd) ' sec'])
+    % disp(['For reference, fully developed Q is ' num2str(Qfd) ])
+    
+    CRout.T = Tvis;
+    CRout.Q = Q;
+catch
+    CRout.T = "Overdamped";
+    CRout.Q = "Overdamped";
+    disp('System is overdamped')
+end
 
 end
 
@@ -97,8 +104,11 @@ end
 if c2==0||isnan(c2)
    
     Omega = sqrt(c3/c1);
+    
 else
+
     Omega = fzero(@(omega) myfun(omega,Pm,c1,c3),z0);
+    
 end
 
 c2 = dampingterm(Omega,Pm);
@@ -122,12 +132,15 @@ c2 = dampingterm(omega,Pm);
     if c3/c1<(c2/(2*c1))^2%abs(imag(f))>0
         disp(c3/c1)
         disp((c2/(2*c1))^2)
-        error('System is overdamped, no resonance')    
+    
+        error('System is overdamped, no resonance') 
+    else
+        %now set up the function to be minimized (move terms in eqn 28 all to one
+        %side)
+        f = omega - sqrt(c3/c1 - (c2/(2*c1)).^2);
+
     end
 
-%now set up the function to be minimized (move terms in eqn 28 all to one
-%side)
-f = omega - sqrt(c3/c1 - (c2/(2*c1)).^2);
 
 end
 
