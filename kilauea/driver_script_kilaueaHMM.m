@@ -89,10 +89,12 @@ end
 
 figure
 subplot(2,1,1)
+%plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
 plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
 ylabel('Re[pressure eig vec]')
 xlabel('distance (m)')
 subplot(2,1,2)
+%plot(Model.M.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
 plot(Model.M.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
 ylabel('Im[pressure eig vec]')
 xlabel('distance (m)')
