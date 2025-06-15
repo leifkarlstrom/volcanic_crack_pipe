@@ -2,17 +2,17 @@ function [Mc] = setparameters()
 
 %% define the material properties and discretization parameters.
 
-Mc.R  = 5;  % conduit radius
-Mc.L   = 700; % conduit length
+Mc.R  = 10;  % conduit radius, m
+Mc.L   = 700; % conduit length, m
 Mc.nz = 2^8;  % number of grid points in z direction
+
 Mc.nr = 2^4;  % number of grid points in r direction
 Mc.order = 8; % order of accuracy in z direction
 Mc.order_r = 8; % order of accuracy in r direction
-
 Mc.Rres = 1000; %reservoir radius (if spherical bc), m
 
 
-Mc.T_C = 1155;             % magma temp (deg C)
+Mc.T = 1155;             % magma temp (deg C)
                          % right now this is generalized for the whole system
                          % ONLY TEMP FOR LOOKUP TABLES: 1155C
 
@@ -26,17 +26,19 @@ Mc.with_exsolution=false;
 % interface condition.
 Mc.interface_split=false;
 
+Mc.mu = 50*ones(Mc.nz+1, 1);
+
 z = Mc.L/Mc.nz*[0:Mc.nz]';
 
 Mc.z = z;
 
 
 % specify background state 
-% options:'parameterized', 'wilde_magmastatic', 'henrys law', 'alphaEOS' 
+% options:'parameterized', 'wilde_magmastatic'
 bgstate = 'wilde_magmastatic';
 
 Mc.epsilon = 1;%.01; % the area ratio between the conduit and the lava lake.
-Mc.pT.A = 2e5; % pressure perturbation amplitude %2e5
+Mc.pT.A = 2e5; % pressure perturbation amplitude
 Mc.pT.T = 1.5; % pressure perturbation duration
 Mc.pT.t  = 5; % pressure perturbation center time
 Mc.G = @(t) Mc.pT.A*exp(-0.5*((t-Mc.pT.t)/Mc.pT.T)^2); % external force from the conduit.
@@ -65,31 +67,23 @@ end
 
 switch bgstate
 
+
     case 'wilde_magmastatic'
-        % choose gas EOS
-            % D&Z2006 gas density values: 'D&Zmixed'
-            % mixed ideal gas law  gas density values: 'Idealmixed'
-            % alphaMELTs lookup table for gas density: 'alphamixed'
-                % NOTE: current lookup table accounts for H2Ofrac = 0.3 ONLY
         
         % prescribe total exsolved gas (H2O + CO2) kinematically
         %   specify n at top of lake, top of conduit, bottom of conduit
-        params.ngas_laketop = 0.0004;  % mass fraction (0.01 mass frac = 1% wt%) 
-        params.ngas_lakebot = 0.0004;
-        params.ngas_condtop = 0.0004;
-        params.ngas_condbot = 0.0001;
+        params.ngas_laketop = 0.004;  % mass fraction (0.01 mass frac = 1% wt%)        
+        params.ngas_condtop = 0.003;
+        params.ngas_condbot = 0.00;
         
         params.Lcol = Mc.L;           % column height, m
         params.Hlake = 300;           % lake depth, m
-        Mc.Hlake = params.Hlake; 
         params.Rres = Mc.Rres;        % reservoir radius, m
         params.dz = Mc.nz;            % spatial steps, m (KW note: not sure if this variable is being used in magmastatic)
         
-        params.T_C = Mc.T_C;             % magma temp (deg C)
+        params.T = Mc.T;             % magma temp (deg C)
                                      % right now this is generalized for the whole system
-    
         
-        params.gasEOS = 'alphamixed';                             
         params.H2Ofrac = 0.3;       % fraction of total volatile contents (H2O+CO2) that is H2O
         Mc.H2Ofrac = params.H2Ofrac;
         
@@ -98,81 +92,20 @@ switch bgstate
         params.p_atm = 1e5;                % atmospheric pressure (Pa)
         params.g = Mc.g;                   % acceleration due to gravity (m/s2)
         params.sigma = 4e-6;               % empirical constant for Henry's Law (from Kalrstrom & Dunham (2016))                                  
-        params.R_H2O = 462;                    % ideal gas constant water vapor (J/kg^(-1) K)
-        params.R_CO2 = 189;                    % ideal gas constant CO2 vapor (J/kg^(-1) K)
-        %params.rho0 = 3000;                                                
+        params.rho0 = 3000;                                                
+        params.R = 462;                    % ideal gas constant (J/kg^(-1) K)
         
         params.z = Mc.z;                   % KW note: background profiles are flipped to be compatible with z=0 bottom of conduit
         
         % solve background profile
-        bg = wilde_magmastatic(params);
-      
+        bg = magmastatic(params);
+
 
         Mc.rho = bg.rhovec; % density
         Mc.c    = bg.cvec; % soundspeed (m/s)
         Mc.K    = Mc.rho.*Mc.c.^2; % melt bulk mod (Pa)
-        
-        %save out ngas intervals
-        Mc.ngas_laketop = params.ngas_laketop; 
-        Mc.ngas_condtop = params.ngas_condtop; 
-        Mc.ngas_condbot = params.ngas_condbot;
 
-        %density difference and average over L
-        Mc.rhobar = 1/Mc.L * trapz(z(2)-z(1),Mc.rho);
 
-        Mc.bg_pvec = bg.pvec; % background pressure profile in column
-
-        Mc.drhodz = gradient(Mc.rho) ./ gradient(Mc.z);
-        Mc.Mg = -(((1 ./ Mc.rho) .* (Mc.drhodz)) + ((Mc.rho .* Mc.g)./ Mc.K)); % the parameter M, defined in Chao Part I paper Eqn 15
-      
-        Mc.mu = bg.muvec; % shear viscosity profile, Pa
-        Mc.n_gas = bg.ngas_vec; % kinematically prescribed profile of exsolved gas
-        
-        Mc.alpha = A_c/Mc.V_c*1/((1/Mc.K(1)+1/K_c));% coupling parameters, dp_c/dt=alpha*v(0).
-    
-        Mc.Ct = Mc.V_c *(1/Mc.K(1)+1/K_c); %elastic storativity of sphere
-
-    case 'henrys law'
-        % uses henry's law for exsolution
-        % uses alphaMELTs for melt density and melt viscosity
-        
-        % choose gas EOS
-            % uses D&Z2006 gas density values: 'D&Zmixed'
-            % uses mixed ideal gas law  gas density values: 'Idealmixed'
-        params.gasEOS = 'D&Zmixed';
-  
-        params.n_tot = 0.005;  % mass fraction TOTAL volatiles (0.01 mass frac = 1% wt%) 
-        params.H2Ofrac = 0.3;       % fraction of total volatile contents (H2O+CO2) that is H2O
-        Mc.H2Ofrac = params.H2Ofrac;
-        
-        params.Lcol = Mc.L;           % column height, m
-        % params.Hlake = 300;           % lake depth, m
-        % Mc.Hlake = params.Hlake; 
-        params.Rres = Mc.Rres;        % reservoir radius, m
-        params.dz = Mc.nz;            % spatial steps, m (KW note: not sure if this variable is being used in magmastatic)
-        
-        params.T_C = Mc.T_C;             % magma temp (deg C)
-                                     % right now this is generalized for the whole system
-       
-        
-        % boundary conditions and fixed variables
-        
-        params.p_atm = 1e5;                % atmospheric pressure (Pa)
-        params.g = Mc.g;                   % acceleration due to gravity (m/s2)
-        params.sigma = 4e-6;               % empirical constant for Henry's Law (from Kalrstrom & Dunham (2016))                                                                                 
-        params.R_H2O = 462;                    % ideal gas constant water vapor (J/kg^(-1) K)
-        params.R_CO2 = 189;                    % ideal gas constant CO2 vapor (J/kg^(-1) K)
-        
-        params.z = Mc.z;                   % KW note: background profiles are flipped to be compatible with z=0 bottom of conduit
-        
-        % solve background profile
-        bg = henry_magmastatic(params);
-      
-
-        Mc.rho = bg.rhovec; % density
-        Mc.c    = bg.cvec; % soundspeed (m/s)
-        Mc.K    = Mc.rho.*Mc.c.^2; % melt bulk mod (Pa)
-        
         %density difference and average over L
         Mc.rhobar = 1/Mc.L * trapz(z(2)-z(1),Mc.rho);
 
@@ -190,10 +123,7 @@ switch bgstate
 
 
             if Mc.interface_split
-                % CURRENTLY ALMOST DIRECTLY COPIED FROM CONDUIT_INTERNALG,
-                % NEEDS TO BE MODIFIED TO MAKE CONSISTENT WITH THE NEW BG
-                % STATE - LK
-
+                
                 rho0      = 800;
                 rho1      = 1500;
                 rho2      = 2000;
