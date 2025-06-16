@@ -82,7 +82,8 @@ if isempty(e)
 end
 
 %find eigenvalues that match target range of imag and real part
-mask = abs(imag(e))<20 & real(e)>-5 & abs(imag(e))>5e-2;
+mask = abs(2*pi./imag(e))>1 & real(e)>-.2 & abs(imag(e))>5e-2;
+%abs(imag(e))<20 & real(e)>-5 & abs(imag(e))>5e-2;
 LF = find(mask);
 % evec = evec( : , LF);
 
@@ -94,12 +95,12 @@ T = 2*pi./imag(e(LF));
 Q = abs(imag(e(LF))./(2.*real(e(LF))));
 
 % just keep the positive ones
-mask = T>0;
-indices = find(mask);
-
-T = T(indices);
-Q = Q(indices);
-evec = evec(: , indices);
+% mask = T>0;
+% indices = find(mask);
+% 
+% T = T(indices);
+% Q = Q(indices);
+% evec = evec(: , indices);
 display(T);
 display(Q);
 
