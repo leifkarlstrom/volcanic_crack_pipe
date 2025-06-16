@@ -28,7 +28,7 @@ params.melt_data = load('NoExsolve_H2Ofrac_1.0_1155.0C_ntot_0.0001_meltdensity_m
 
 
 % convert Temp celcius to temp kelvin
-params.T = params.T + 273.15;
+params.T_K = params.T_C + 273.15;
 
 % define depth vector (full column)
 zvec_col = params.z';
@@ -37,20 +37,36 @@ params.zvec_col = zvec_col;
 
 %% BUILD n_gas VECTOR
 % we are not using an exsolution model here, prescribe n_gas kinematically
-    % right now, z=0 is lake top, z=L is condbot 
+    % right now, z=0 is lake top, z=L is conduit bottom
     % this will be flipped at the end to be consistent with Chao's model
-    
-% z values consistent with n_gas piecewise values
-z_known = [0, params.Hlake, params.Hlake + (zvec_col(2)-zvec_col(1)), params.Lcol]; 
-% corresponding ngas values
-n_known = [params.ngas_laketop, params.ngas_lakebot, params.ngas_condtop, params.ngas_condbot];
 
-% interpolate to get a smooth piecewise ngas profile
-% in the future, it might be better to do a linear interp and then smooth
-% the transition at Hlake
-ngas_vec = interp1(z_known, n_known, zvec_col, 'pchip');
+% specify anchors for transitions
+z1 = params.Hlake;   % lakebot → condtop
+z2 = params.Lcol;    % condtop → condbot
+
+% adjust coefficients for smoothing widths
+alpha1 = 0.2;  % fraction of lake depth
+alpha2 = 0.8;  % fraction of conduit length
+
+% smoothing widths (meters)
+w1 = alpha1 * params.Hlake;
+w2 = alpha2 * (params.Lcol - params.Hlake);
+
+% create smooth transition functions
+t1 = 0.1 * (1 + tanh((zvec_col - z1)/w1));  % ranges from 0 → 1
+t2 = 0.1 * (1 + tanh((zvec_col - z2)/w2));  % ranges from 0 → 1
+
+% build smooth profile
+ngas_vec = ...
+    params.ngas_laketop + ...
+    (params.ngas_lakebot - params.ngas_laketop) * t1 + ...
+    (params.ngas_condtop - params.ngas_lakebot) * t1 + ...
+    (params.ngas_condbot - params.ngas_condtop) * t2;
+
 
 params.ngas_vec = ngas_vec;
+
+
 
 %% solve RHS of EOS
 options = odeset('RelTol',1e-8,'AbsTol',1e-8);
@@ -147,7 +163,7 @@ bg.cvec = flip(cvec)';
 bg.rhovec_melt = flip(rhovec_melt)';
 bg.ngas_vec = flip(ngas_vec)';
 % bg.K_vec = flip(K_vec);
-
+keyboard
 %% plot background state %%
 
 % % % plot colors % % %
@@ -184,9 +200,9 @@ subplot(1,4,4)
 
 plot(bg.cvec, bg.zvec_col, 'color', blue, 'LineWidth', 1.5)
 
+
 xlabel('soundspeed m/s', "FontSize", 12);
 grid
-
 
 end
 

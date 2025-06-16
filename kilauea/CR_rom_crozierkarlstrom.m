@@ -58,8 +58,8 @@ try
         sqrt((Pm.g*(Pm.rho(end)-DeltaRho)+ pi*Pm.rad(1)^2/Pm.Ct)/(Pm.H*rhoavg) - ...
         16*mean(Pm.mu)^2/(Pm.rad(1)^4*rhoavg^2));
     
-    disp(['Conduit-Reservoir period is ' num2str(Tvis) ' sec'])
-    disp(['CR Quality factor is ' num2str(Q)])
+    disp(['Conduit-Reservoir period (ROM) is ' num2str(Tvis) ' sec'])
+    disp(['CR Quality factor (ROM) is ' num2str(Q)])
     
     disp(['For reference, inviscid resonant period from Liang is ' num2str(Tinvis) ' sec'])
     disp(['For reference, fully developed flow resonant period is ' num2str(Tfd) ' sec'])

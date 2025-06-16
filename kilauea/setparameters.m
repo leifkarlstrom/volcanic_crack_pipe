@@ -74,10 +74,10 @@ switch bgstate
         
         % prescribe total exsolved gas (H2O + CO2) kinematically
         %   specify n at top of lake, top of conduit, bottom of conduit
-        params.ngas_laketop = 0.0004;  % mass fraction (0.01 mass frac = 1% wt%) 
-        params.ngas_lakebot = 0.0004;
-        params.ngas_condtop = 0.0004;
-        params.ngas_condbot = 0.0001;
+        params.ngas_laketop = 0.001;  % mass fraction (0.01 mass frac = 1% wt%) 
+        params.ngas_lakebot = 0.001;
+        params.ngas_condtop = 0.001;
+        params.ngas_condbot = 0.0005;
         
         params.Lcol = Mc.L;           % column height, m
         params.Hlake = 300;           % lake depth, m
@@ -89,7 +89,7 @@ switch bgstate
                                      % right now this is generalized for the whole system
     
         
-        params.gasEOS = 'alphamixed';                             
+        params.gasEOS = 'D&Zmixed';                             
         params.H2Ofrac = 0.3;       % fraction of total volatile contents (H2O+CO2) that is H2O
         Mc.H2Ofrac = params.H2Ofrac;
         
