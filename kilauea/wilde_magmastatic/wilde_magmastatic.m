@@ -37,6 +37,10 @@ function bg = wilde_magmastatic(params)
     % sigma: empirical constant for Henry's Law         [Pa -1/2]
     % nvec_gas: volatile gas mass fraction vector       [wt%]
 
+    % NOTE: 
+        % this takes input: zvec, laketop = 0, cond bot = L
+        % this outputs: zvec, laketop = L, cond bot = 0
+
 %% 
 
 % load lookup table
