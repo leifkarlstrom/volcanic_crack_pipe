@@ -89,7 +89,7 @@ switch bgstate
                                      % right now this is generalized for the whole system
     
         
-        params.gasEOS = 'D&Zmixed';                             
+        params.gasEOS = 'Idealmixed';                             
         params.H2Ofrac = 0.3;       % fraction of total volatile contents (H2O+CO2) that is H2O
         Mc.H2Ofrac = params.H2Ofrac;
         
