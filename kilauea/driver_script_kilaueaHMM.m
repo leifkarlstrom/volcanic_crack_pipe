@@ -38,7 +38,7 @@ Model = conduit_internal_g(Mc);
 
 skip = 1; %only save output every "skip" steps to save memory
 
-T = 400; %total time in sec
+T = 100; %total time in sec
 
 eigmodeonly = 1; %look only at eigenmodes, or do full timestepping
 
@@ -61,10 +61,10 @@ else
 end
 
 % Storage arrays
-%ICs
-out.p(:,1) = zeros((Mc.nz+1),1);
+out.p(:,1) = zeros(Model.geom.nz,1);%zeros((Mc.nz+1),1);
+
 out.t(1) = 0; 
-out.z = Mc.z;
+out.z = Model.geom.z;%Mc.z;
 out.dt = dt;
 out.skip = skip;
 
@@ -125,12 +125,12 @@ end
 figure
 subplot(2,1,1)
 %plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
-plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+plot(Model.geom.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
 ylabel('Re[pressure eig vec]')
 xlabel('distance (m)')
 subplot(2,1,2)
 %plot(Model.M.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
-plot(Model.M.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+plot(Model.geom.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
 ylabel('Im[pressure eig vec]')
 xlabel('distance (m)')
 legend(lbl)

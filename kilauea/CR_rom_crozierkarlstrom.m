@@ -10,7 +10,20 @@ Pm.H = out.M.L; %length of the conduit
 N = 1e4; %number of points desired in zvec
 Pm.dz = Pm.H/(N -1) ;
 z = linspace(0,Pm.H,N); %generate z vec with custom dz
+
+if out.M.interface_split==true 
+    %remove the repeated index if using an interface
+    %this may be slightly inaccurate if there is a true jump across the
+    %interface, but otherwise will be accurate
+    out.z(out.M.split_index)=[];
+    out.M.mu(out.M.split_index)=[];
+    out.p(out.M.split_index)=[];
+    out.M.rho(out.M.split_index)=[];
+end
+
+
 oldz = out.z; 
+
 Pm.rho = interp1(oldz,out.M.rho,z);
 
 Pm.drhodz = gradient(Pm.rho,Pm.dz); %density gradient 
@@ -19,7 +32,9 @@ Pm.mu = interp1(oldz,out.M.mu,z);%viscosity as fctn of depth z in Pas
 %parameter definitions for conduit (need to be consistent with simulation!)
 Pm.g = out.M.g; %gravity
 
-Pm.rad = out.M.R; %conduit radius as fct of z based on input
+Pm.rad = sqrt(out.M.S/pi); %use the conduit cross section to get radius
+%out.M.R; %conduit radius as fct of z based on input
+
 %Pm.rad = out.M.R*ones(size(z));%interp1(oldz,out.M.R,z); %interpolate to new zvec
 
 Pm.Ct = out.M.Ct;%total storativity of reservoir (magma+elastic)
