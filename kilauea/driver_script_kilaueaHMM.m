@@ -38,7 +38,7 @@ Model = conduit_internal_g(Mc);
 
 skip = 1; %only save output every "skip" steps to save memory
 
-T = 100; %total time in sec
+T = 200; %total time in sec
 
 eigmodeonly = 1; %look only at eigenmodes, or do full timestepping
 
@@ -82,7 +82,7 @@ if isempty(e)
 end
 
 %find eigenvalues that match target range of imag and real part
-mask = abs(2*pi./imag(e))>1 & real(e)>-.2 & abs(imag(e))>5e-2;
+mask = abs(2*pi./imag(e))>.5 & real(e)>-.2 & abs(imag(e))>5e-2;
 %abs(imag(e))<20 & real(e)>-5 & abs(imag(e))>5e-2;
 LF = find(mask);
 % evec = evec( : , LF);

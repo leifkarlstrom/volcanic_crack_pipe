@@ -19,6 +19,7 @@ if out.M.interface_split==true
     out.M.mu(out.M.split_index)=[];
     out.p(out.M.split_index)=[];
     out.M.rho(out.M.split_index)=[];
+    out.M.S(out.M.split_index)=[];
 end
 
 
@@ -32,7 +33,8 @@ Pm.mu = interp1(oldz,out.M.mu,z);%viscosity as fctn of depth z in Pas
 %parameter definitions for conduit (need to be consistent with simulation!)
 Pm.g = out.M.g; %gravity
 
-Pm.rad = sqrt(out.M.S/pi); %use the conduit cross section to get radius
+%Pm.rad = sqrt(out.M.S/pi); %use the conduit cross section to get radius
+Pm.rad = interp1(oldz,sqrt(out.M.S/pi),z);%viscosity as fctn of depth z in Pas
 %out.M.R; %conduit radius as fct of z based on input
 
 %Pm.rad = out.M.R*ones(size(z));%interp1(oldz,out.M.R,z); %interpolate to new zvec

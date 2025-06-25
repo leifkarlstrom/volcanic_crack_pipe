@@ -210,11 +210,11 @@ switch bgstate
             c0         = 1000; % wavespeed in upper section
             c1         = 1000; % wavespeed in lower section
 
-            mu0     = 50;% viscosity in upper section
+            mu0     = 100;% viscosity in upper section
             mu1     = 50;% viscosity in lwer section
 
-            R0 = 100; %radius in upper section
-            R1 = 100; %radius in lower section
+            R0 = 50; %radius in upper section
+            R1 = 10; %radius in lower section
 
             AreaRatio = R0^2/R1^2; %upper area divided by lower
 
@@ -240,14 +240,11 @@ switch bgstate
             c_upper = c0*ones(size(z_upper));
             %modify the sound speed in the lower conduit to reflect
             %impedance difference associated with area change: doubling
-            %cross sectional area is equivalent to halving sound speed
+            %radius is equivalent to halving sound speed
             c_lower = c1*ones(size(z_lower))*AreaRatio;
 
             mu_upper = mu0*ones(size(z_upper));
-            %modify the viscosity in the lower conduit to reflect
-            %viscous diffusion time difference associated with area change: 
-            %doubling cross sectional area is equivalent to halving viscosity            
-            mu_lower = mu1*ones(size(z_lower))*AreaRatio;
+            mu_lower = mu1*ones(size(z_lower));
 
             %now combine to make BG grid with two sections
             Mc.rho = [rho_lower; rho_upper];
@@ -258,6 +255,7 @@ switch bgstate
             Mc.Mg = Rhoalpha - Mc.rho*Mc.g./Mc.K; % the parameter M I defined in Part I paper.
             z = [z_lower;z_upper];
             Mc.S = [S_lower;S_upper];%pi*Mc.R^2*ones(length(z), 1); %cross-sectional area.
+            Mc.R = sqrt(Mc.S/pi);
         else
 
             rho0     = 500;
