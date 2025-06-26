@@ -19,21 +19,18 @@ source = 'MELTS_lookup_tables';
 addpath(genpath(source));
 
 
+
 %call script to specify conduit parameters, based on BGstate
 [Mc] = setparameters();
+keyboard
 
-% n= Mc.n_gas;
-% c= Mc.c;
-% z=Mc.z;
-% n1 = Mc.ngas_laketop;
-% n2 = params.ngas_lakebot;
-% n3 = Mc.ngas_condtop;
-% n4 = Mc.ngas_condbot;
-% L = Mc.L;
-% Hlake = Mc.Hlake;
 
 
 %build the model 
+
+% if interface is split, conduit radius will set the resolution for full
+% column -KW
+% Mc.R = Mc.Rcond;
 Model = conduit_internal_g(Mc);
 
 skip = 1; %only save output every "skip" steps to save memory

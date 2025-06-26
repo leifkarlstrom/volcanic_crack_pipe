@@ -60,32 +60,58 @@ params.zvec_col = zvec_col;
     % right now, z=0 is lake top, z=L is conduit bottom
     % this will be flipped at the end to be consistent with Chao's model
 
-% specify anchors for transitions
-z1 = params.Hlake;   % lakebot → condtop
-z2 = params.Lcol;    % condtop → condbot
+if params.interface_split
 
-% adjust coefficients for smoothing widths
-alpha1 = 0.2;  % fraction of lake depth
-alpha2 = 0.8;  % fraction of conduit length
+    % in this case we will linearly interpolate between points
+    % no smoothing
 
-% smoothing widths (meters)
-w1 = alpha1 * params.Hlake;
-w2 = alpha2 * (params.Lcol - params.Hlake);
+    % initialize gas vector
+    ngas_vec = zeros(size(params.zvec_col));
 
-% create smooth transition functions
-t1 = 0.1 * (1 + tanh((zvec_col - z1)/w1));  % ranges from 0 → 1
-t2 = 0.1 * (1 + tanh((zvec_col - z2)/w2));  % ranges from 0 → 1
+    % linearly interpolate lake segment: 0 ≤ z ≤ Hlake
+    idx_lake = (params.zvec_col <= params.Hlake);
+    ngas_vec(idx_lake) = params.ngas_laketop ...
+        + (params.ngas_lakebot - params.ngas_laketop)/params.Hlake ...
+          .* params.zvec_col(idx_lake);
+    
+    % linearly interpolate conduit segment: Hlake < z ≤ Lcol
+    idx_cond = (params.zvec_col > params.Hlake) & (params.zvec_col <= params.Lcol);
+    ngas_vec(idx_cond) = params.ngas_condtop ...
+        + (params.ngas_condbot - params.ngas_condtop)/(params.Lcol - params.Hlake) ...
+          .* (params.zvec_col(idx_cond) - params.Hlake);
+    
+    params.ngas_vec = ngas_vec;
 
-% build smooth profile
-ngas_vec = ...
-    params.ngas_laketop + ...
-    (params.ngas_lakebot - params.ngas_laketop) * t1 + ...
-    (params.ngas_condtop - params.ngas_lakebot) * t1 + ...
-    (params.ngas_condbot - params.ngas_condtop) * t2;
-
-
-params.ngas_vec = ngas_vec;
-
+else
+    
+    % in this case we smooth the profile
+    
+    % specify anchors for transitions
+    z1 = params.Hlake;   % lakebot → condtop
+    z2 = params.Lcol;    % condtop → condbot
+    
+    % adjust coefficients for smoothing widths
+    alpha1 = 0.2;  % fraction of lake depth
+    alpha2 = 0.8;  % fraction of conduit length
+    
+    % smoothing widths (meters)
+    w1 = alpha1 * params.Hlake;
+    w2 = alpha2 * (params.Lcol - params.Hlake);
+    
+    % create smooth transition functions
+    t1 = 0.1 * (1 + tanh((zvec_col - z1)/w1));  % ranges from 0 → 1
+    t2 = 0.1 * (1 + tanh((zvec_col - z2)/w2));  % ranges from 0 → 1
+    
+    % build smooth profile
+    ngas_vec = ...
+        params.ngas_laketop + ...
+        (params.ngas_lakebot - params.ngas_laketop) * t1 + ...
+        (params.ngas_condtop - params.ngas_lakebot) * t1 + ...
+        (params.ngas_condbot - params.ngas_condtop) * t2;
+    
+    
+    params.ngas_vec = ngas_vec;
+end
 
 
 %% solve RHS of EOS

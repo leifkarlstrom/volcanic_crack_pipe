@@ -2,10 +2,13 @@ function [Mc] = setparameters()
 
 %% define the material properties and discretization parameters.
 
-Mc.R  = 5;  % conduit radius
-Mc.L   = 700; % conduit length
+Mc.Rcond  = 5;  % conduit radius, m
+Mc.Rlake = 100; % lake radius, m (only used if interflace_split=true)
+Mc.L   = 700; % conduit length, m
+Mc.Hlake = 300; % lake depth, m
 Mc.nz = 2^7;  % number of grid points in z direction
-Mc.nr = 2^4;  % number of grid points in r direction
+Mc.nr = 2^4;  % number of grid points in r direction in the CONDUIT (if interface is split, conduit nr will set resolution for whole column)
+>>>>>>> Stashed changes
 Mc.order = 8; % order of accuracy in z direction
 Mc.order_r = 8; % order of accuracy in r direction
 
@@ -16,7 +19,6 @@ Mc.T_C = 1155;             % magma temp (deg C)
                          % right now this is generalized for the whole system
                          % ONLY TEMP FOR LOOKUP TABLES: 1155C
 
-Mc.S = pi*Mc.R^2*ones(Mc.nz+1, 1); %cross-sectional area.
 Mc.g = 9.8; % gravitational acceleration.
 % I don't implement the exsolution in this model, so set this to false.
 Mc.with_exsolution=false;
@@ -44,22 +46,22 @@ Mc.G = @(t) Mc.pT.A*exp(-0.5*((t-Mc.pT.t)/Mc.pT.T)^2); % external force from the
 
 Mc.BCtype = 'quasistatic';%'pressure'; %set the basal boundary conditions, "pressure" is p=0
 
-if strcmp(Mc.BCtype,'quasistatic')
-    %if there is a quasistatic reservoir at the bottom, define its
-    %properties
-    %assume sphere for now
-    A_c = Mc.S(1);%cross sectional area of conduit
-    R_c = Mc.Rres; %radius of spherical chamber
-    Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
-
-    K_w = 3e9;% bulk modulus of wall rock
-    nu_w = 0.25;% Poisson's ratio of wall rock
-    %M.lambda_w = 3*M.K_w*M.nu_w/(1+M.nu_w); % lame constant of wall rock
-    G_w = 3*K_w*(1-2*nu_w)/(2+2*nu_w);% shear modulus of rock wall rock  
-
-    K_c = 4*G_w/3; %sphere elastic stiffness 
-    
-end
+% if strcmp(Mc.BCtype,'quasistatic')
+%     %if there is a quasistatic reservoir at the bottom, define its
+%     %properties
+%     %assume sphere for now
+%     A_c = Mc.S(1);%cross sectional area of conduit
+%     R_c = Mc.Rres; %radius of spherical chamber
+%     Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
+% 
+%     K_w = 3e9;% bulk modulus of wall rock
+%     nu_w = 0.25;% Poisson's ratio of wall rock
+%     %M.lambda_w = 3*M.K_w*M.nu_w/(1+M.nu_w); % lame constant of wall rock
+%     G_w = 3*K_w*(1-2*nu_w)/(2+2*nu_w);% shear modulus of rock wall rock  
+% 
+%     K_c = 4*G_w/3; %sphere elastic stiffness 
+% 
+% end
 
 %%
 
@@ -74,14 +76,13 @@ switch bgstate
         
         % prescribe total exsolved gas (H2O + CO2) kinematically
         %   specify n at top of lake, top of conduit, bottom of conduit
-        params.ngas_laketop = 0.001;  % mass fraction (0.01 mass frac = 1% wt%) 
-        params.ngas_lakebot = 0.001;
+        params.ngas_laketop = 0.004;  % mass fraction (0.01 mass frac = 1% wt%) 
+        params.ngas_lakebot = 0.004;
         params.ngas_condtop = 0.001;
-        params.ngas_condbot = 0.0005;
+        params.ngas_condbot = 0.001;
         
         params.Lcol = Mc.L;           % column height, m
-        params.Hlake = 300;           % lake depth, m
-        Mc.Hlake = params.Hlake; 
+        params.Hlake = Mc.Hlake; 
         params.Rres = Mc.Rres;        % reservoir radius, m
         params.dz = Mc.nz;            % spatial steps, m (KW note: not sure if this variable is being used in magmastatic)
         
@@ -102,15 +103,16 @@ switch bgstate
         params.R_CO2 = 189;                    % ideal gas constant CO2 vapor (J/kg^(-1) K)
         %params.rho0 = 3000;                                                
         
-        params.z = Mc.z;                   % KW note: background profiles are flipped to be compatible with z=0 bottom of conduit
+        params.z = Mc.z;                   % KW note: background profiles are later flipped to be compatible with z=0 bottom of conduit
         
         % solve background profile
         bg = wilde_magmastatic(params);
       
-
+        Mc.z = bg.zvec_col; % depth vector, z=0 is condbot
         Mc.rho = bg.rhovec; % density
         Mc.c    = bg.cvec; % soundspeed (m/s)
         Mc.K    = Mc.rho.*Mc.c.^2; % melt bulk mod (Pa)
+        Mc.S = pi*Mc.Rcond^2*ones(Mc.nz+1, 1); %cross-sectional area if not segmented
         
         %save out ngas intervals
         Mc.ngas_laketop = params.ngas_laketop; 
@@ -128,11 +130,71 @@ switch bgstate
         Mc.mu = bg.muvec; % shear viscosity profile, Pa
         Mc.n_gas = bg.ngas_vec; % kinematically prescribed profile of exsolved gas
         
+
+        if params.interface_split
+            % the z-coordinate of jump point (meters from base of conduit)
+            % we'll choose the bottom of the lake
+            % the profiles have been flipped to be consistent with Chao's
+            % model so z(1) = 0 is the bottom of the conduit and z(end) = L
+            % is the top of the lake -- KW
+            z_split = Mc.L - Mc.Hlake;
+            % find the closest point to the specified coordinate and duplicate the grid point
+            [~, Mc.split_index] = min(abs(Mc.z - z_split));
+            z_upper = Mc.z(Mc.split_index:end);
+            z_lower = Mc.z(1:Mc.split_index);
+
+            % redefine fluid properties and geometry for each section
+            S_upper = pi*Mc.Rlake^2*ones(size(z_upper)); % x-sectional area
+            S_lower = pi*Mc.Rcond^2*ones(size(z_lower));
+            rho_upper = Mc.rho(Mc.split_index:end); % bulk density
+            rho_lower = Mc.rho(1:Mc.split_index);
+            c_upper = Mc.c(Mc.split_index:end); % soundspeed
+            c_lower = Mc.c(1:Mc.split_index);
+            P_upper = Mc.bg_pvec(Mc.split_index:end); % bg pressure
+            P_lower = Mc.bg_pvec(1:Mc.split_index);
+            mu_upper = Mc.mu(Mc.split_index:end); % apparent viscosity
+            mu_lower = Mc.mu(1:Mc.split_index);
+            ngas_upper = Mc.n_gas(Mc.split_index:end); % n_gas
+            ngas_lower = Mc.n_gas(1:Mc.split_index);
+        
+            %now combine to make BG grid with two sections
+            Mc.rho = [rho_lower; rho_upper];
+            Mc.c    = [c_lower; c_upper];
+            Mc.mu = [mu_lower; mu_upper];
+            Mc.bg_pvec = [P_lower; P_upper];
+            Mc.n_gas = [ngas_lower; ngas_upper];
+            Mc.z = [z_lower;z_upper];
+            Mc.S = [S_lower;S_upper];
+          
+            Mc.K    = Mc.rho.*Mc.c.^2; % melt bulk mod (Pa)
+
+            Mc.drhodz = gradient(Mc.rho) ./ gradient(Mc.z);
+            Mc.Mg = -(((1 ./ Mc.rho) .* (Mc.drhodz)) + ((Mc.rho .* Mc.g)./ Mc.K)); % the parameter M, defined in Chao Part I paper Eqn 15
+        else
+            Mc.R = Mc.Rcond; % scalar
+        end
+        if strcmp(Mc.BCtype,'quasistatic')
+            %if there is a quasistatic reservoir at the bottom, define its
+            %properties
+            %assume sphere for now
+            % GEOMETRY NEEDS TO BE UPDATED!!  -KW
+            A_c = Mc.S(1);%cross sectional area of conduit
+            R_c = Mc.Rres; %radius of spherical chamber
+            Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
+        
+            K_w = 3e9;% bulk modulus of wall rock
+            nu_w = 0.25;% Poisson's ratio of wall rock
+            %M.lambda_w = 3*M.K_w*M.nu_w/(1+M.nu_w); % lame constant of wall rock
+            G_w = 3*K_w*(1-2*nu_w)/(2+2*nu_w);% shear modulus of rock wall rock  
+        
+            K_c = 4*G_w/3; %sphere elastic stiffness 
+            
+        end
+        
         Mc.alpha = A_c/Mc.V_c*1/((1/Mc.K(1)+1/K_c));% coupling parameters, dp_c/dt=alpha*v(0).
     
         Mc.Ct = Mc.V_c *(1/Mc.K(1)+1/K_c); %elastic storativity of sphere
-
-    case 'henrys law'
+    case 'henrys law' %% NEEDS TO BE UPDATED FOR SEGMENTED -KW
         % uses henry's law for exsolution
         % uses alphaMELTs for melt density and melt viscosity
         
@@ -168,7 +230,7 @@ switch bgstate
         % solve background profile
         bg = henry_magmastatic(params);
       
-
+        Mc.z = bg.zvec_col; % depth vector
         Mc.rho = bg.rhovec; % density
         Mc.c    = bg.cvec; % soundspeed (m/s)
         Mc.K    = Mc.rho.*Mc.c.^2; % melt bulk mod (Pa)
@@ -187,12 +249,9 @@ switch bgstate
         Mc.alpha = A_c/Mc.V_c*1/((1/Mc.K(1)+1/K_c));% coupling parameters, dp_c/dt=alpha*v(0).
     
         Mc.Ct = Mc.V_c *(1/Mc.K(1)+1/K_c); %elastic storativity of sphere
+        Mc.S = flip(Mc.S);
 
-
-    case 'parameterized'
-
-        % this is not yet operational, need to add variable radius #KW
-  
+    case 'parameterized' 
 
         % density profile, I use exponential profile as an example but you can
         % specify other profiles. You just need to make sure that this profile is
@@ -213,8 +272,8 @@ switch bgstate
             mu0     = 50;% viscosity in upper section
             mu1     = 50;% viscosity in lwer section
 
-            R0 = 100; %radius in upper section
-            R1 = 100; %radius in lower section
+            R0 = Mc.Rlake; %radius in upper section
+            R1 = Mc.Rcond; %radius in lower section
 
             AreaRatio = R0^2/R1^2; %upper area divided by lower
 
