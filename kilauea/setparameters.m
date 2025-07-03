@@ -1,14 +1,18 @@
 function [Mc] = setparameters()
 
+% last update: 26 June 2025 -- KW
+
+
+
+
 %% define the material properties and discretization parameters.
 
 Mc.Rcond  = 5;  % conduit radius, m
-Mc.Rlake = 100; % lake radius, m (only used if interflace_split=true)
-Mc.L   = 700; % conduit length, m
-Mc.Hlake = 300; % lake depth, m
-Mc.nz = 2^7;  % number of grid points in z direction
+Mc.Rlake = 10; % lake radius, m (only used if interflace_split=true)
+Mc.L   = 600; % conduit length, m
+Mc.Hlake = 200; % lake depth, m
+Mc.nz = 2^8;  % number of grid points in z direction
 Mc.nr = 2^4;  % number of grid points in r direction in the CONDUIT (if interface is split, conduit nr will set resolution for whole column)
->>>>>>> Stashed changes
 Mc.order = 8; % order of accuracy in z direction
 Mc.order_r = 8; % order of accuracy in r direction
 
@@ -20,22 +24,25 @@ Mc.T_C = 1155;             % magma temp (deg C)
                          % ONLY TEMP FOR LOOKUP TABLES: 1155C
 
 Mc.g = 9.8; % gravitational acceleration.
+
 % I don't implement the exsolution in this model, so set this to false.
-Mc.with_exsolution=false;
+Mc.with_exsolution=true;
 
 % This interface split flag handles the properties jump at the exsolution
 % depth.  You need to specify the jump index for the code to handle the
 % interface condition.
 Mc.interface_split=true;
 
+params.interface_split = Mc.interface_split; % necessary for wilde_magmastatic bgstate
+
 z = Mc.L/Mc.nz*[0:Mc.nz]'; % z = 0 is lake top, z = L is cond bottom (this will be flipped later)
 
 Mc.z = z;
 
 
-% specify background state 
+%% specify background state 
 % options:'parameterized', 'wilde_magmastatic', 'henrys law', 'alphaEOS' 
-bgstate = 'parameterized';'wilde_magmastatic';
+bgstate = 'wilde_magmastatic'; 
 
 Mc.epsilon = 1;%.01; % the area ratio between the conduit and the lava lake.
 Mc.pT.A = 2e5; % pressure perturbation amplitude %2e5
@@ -45,23 +52,6 @@ Mc.G = @(t) Mc.pT.A*exp(-0.5*((t-Mc.pT.t)/Mc.pT.T)^2); % external force from the
 
 
 Mc.BCtype = 'quasistatic';%'pressure'; %set the basal boundary conditions, "pressure" is p=0
-
-% if strcmp(Mc.BCtype,'quasistatic')
-%     %if there is a quasistatic reservoir at the bottom, define its
-%     %properties
-%     %assume sphere for now
-%     A_c = Mc.S(1);%cross sectional area of conduit
-%     R_c = Mc.Rres; %radius of spherical chamber
-%     Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
-% 
-%     K_w = 3e9;% bulk modulus of wall rock
-%     nu_w = 0.25;% Poisson's ratio of wall rock
-%     %M.lambda_w = 3*M.K_w*M.nu_w/(1+M.nu_w); % lame constant of wall rock
-%     G_w = 3*K_w*(1-2*nu_w)/(2+2*nu_w);% shear modulus of rock wall rock  
-% 
-%     K_c = 4*G_w/3; %sphere elastic stiffness 
-% 
-% end
 
 %%
 
@@ -76,10 +66,10 @@ switch bgstate
         
         % prescribe total exsolved gas (H2O + CO2) kinematically
         %   specify n at top of lake, top of conduit, bottom of conduit
-        params.ngas_laketop = 0.004;  % mass fraction (0.01 mass frac = 1% wt%) 
-        params.ngas_lakebot = 0.004;
-        params.ngas_condtop = 0.001;
-        params.ngas_condbot = 0.001;
+        params.ngas_laketop = 0.0001;  % mass fraction (0.01 mass frac = 1% wt%) 
+        params.ngas_lakebot = 0.00001;
+        params.ngas_condtop = 0.00001;
+        params.ngas_condbot = 0.00001;
         
         params.Lcol = Mc.L;           % column height, m
         params.Hlake = Mc.Hlake; 
@@ -89,7 +79,11 @@ switch bgstate
         params.T_C = Mc.T_C;             % magma temp (deg C)
                                      % right now this is generalized for the whole system
     
-        
+        % choose gas EOS:
+            % D&Z2006 gas density values: 'D&Zmixed'
+            % mixed ideal gas law  gas density values: 'Idealmixed'
+            % alphaMELTs lookup table for gas density: 'alphamixed'
+                % NOTE: current lookup table accounts for H2Ofrac = 0.3 ONLY
         params.gasEOS = 'Idealmixed';                             
         params.H2Ofrac = 0.3;       % fraction of total volatile contents (H2O+CO2) that is H2O
         Mc.H2Ofrac = params.H2Ofrac;
@@ -137,23 +131,44 @@ switch bgstate
             % the profiles have been flipped to be consistent with Chao's
             % model so z(1) = 0 is the bottom of the conduit and z(end) = L
             % is the top of the lake -- KW
+            
             z_split = Mc.L - Mc.Hlake;
+            
             % find the closest point to the specified coordinate and duplicate the grid point
             [~, Mc.split_index] = min(abs(Mc.z - z_split));
             z_upper = Mc.z(Mc.split_index:end);
             z_lower = Mc.z(1:Mc.split_index);
 
+            
+
+            R1 = Mc.Rlake; % lava lake radius
+            R0 = Mc.Rcond; % conduit radius
+
+            AreaRatio = R0^2/R1^2; %lower area divided by upper
+            
+   
+            
             % redefine fluid properties and geometry for each section
             S_upper = pi*Mc.Rlake^2*ones(size(z_upper)); % x-sectional area
             S_lower = pi*Mc.Rcond^2*ones(size(z_lower));
             rho_upper = Mc.rho(Mc.split_index:end); % bulk density
             rho_lower = Mc.rho(1:Mc.split_index);
             c_upper = Mc.c(Mc.split_index:end); % soundspeed
-            c_lower = Mc.c(1:Mc.split_index);
+            
+            %modify the sound speed in the lower conduit to reflect
+            %impedance difference associated with area change: doubling
+            %cross sectional area is equivalent to halving sound speed
+            c_lower = Mc.c(1:Mc.split_index)*AreaRatio;
+
             P_upper = Mc.bg_pvec(Mc.split_index:end); % bg pressure
             P_lower = Mc.bg_pvec(1:Mc.split_index);
             mu_upper = Mc.mu(Mc.split_index:end); % apparent viscosity
-            mu_lower = Mc.mu(1:Mc.split_index);
+
+            %modify the viscosity in the lower conduit to reflect
+            %viscous diffusion time difference associated with area change: 
+            %doubling cross sectional area is equivalent to halving viscosity    
+            mu_lower = Mc.mu(1:Mc.split_index)*AreaRatio;
+            
             ngas_upper = Mc.n_gas(Mc.split_index:end); % n_gas
             ngas_lower = Mc.n_gas(1:Mc.split_index);
         
@@ -170,31 +185,13 @@ switch bgstate
 
             Mc.drhodz = gradient(Mc.rho) ./ gradient(Mc.z);
             Mc.Mg = -(((1 ./ Mc.rho) .* (Mc.drhodz)) + ((Mc.rho .* Mc.g)./ Mc.K)); % the parameter M, defined in Chao Part I paper Eqn 15
-        else
-            Mc.R = Mc.Rcond; % scalar
+        
+          
         end
-        if strcmp(Mc.BCtype,'quasistatic')
-            %if there is a quasistatic reservoir at the bottom, define its
-            %properties
-            %assume sphere for now
-            % GEOMETRY NEEDS TO BE UPDATED!!  -KW
-            A_c = Mc.S(1);%cross sectional area of conduit
-            R_c = Mc.Rres; %radius of spherical chamber
-            Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
+       
         
-            K_w = 3e9;% bulk modulus of wall rock
-            nu_w = 0.25;% Poisson's ratio of wall rock
-            %M.lambda_w = 3*M.K_w*M.nu_w/(1+M.nu_w); % lame constant of wall rock
-            G_w = 3*K_w*(1-2*nu_w)/(2+2*nu_w);% shear modulus of rock wall rock  
         
-            K_c = 4*G_w/3; %sphere elastic stiffness 
-            
-        end
-        
-        Mc.alpha = A_c/Mc.V_c*1/((1/Mc.K(1)+1/K_c));% coupling parameters, dp_c/dt=alpha*v(0).
-    
-        Mc.Ct = Mc.V_c *(1/Mc.K(1)+1/K_c); %elastic storativity of sphere
-    case 'henrys law' %% NEEDS TO BE UPDATED FOR SEGMENTED -KW
+    case 'henrys law' %% NEEDS TO BE UPDATED FOR SEGMENTED RADIUS -KW
         % uses henry's law for exsolution
         % uses alphaMELTs for melt density and melt viscosity
         
@@ -204,7 +201,7 @@ switch bgstate
         params.gasEOS = 'D&Zmixed';
   
         params.n_tot = 0.005;  % mass fraction TOTAL volatiles (0.01 mass frac = 1% wt%) 
-        params.H2Ofrac = 0.3;       % fraction of total volatile contents (H2O+CO2) that is H2O
+        params.H2Ofrac = 0.;       % fraction of total volatile contents (H2O+CO2) that is H2O
         Mc.H2Ofrac = params.H2Ofrac;
         
         params.Lcol = Mc.L;           % column height, m
@@ -263,7 +260,7 @@ switch bgstate
 
             rho0      = 800;
             rho1      = 1500;
-            rho2      = 2000;
+            rho2      = 1500;
             rho3      = 3000;
 
             c0         = 1000; % wavespeed in upper section
@@ -272,12 +269,13 @@ switch bgstate
             mu0     = 50;% viscosity in upper section
             mu1     = 50;% viscosity in lwer section
 
-            R0 = Mc.Rlake; %radius in upper section
-            R1 = Mc.Rcond; %radius in lower section
+            R1 = Mc.Rlake; %radius in upper section
+            R0 = Mc.Rcond; %radius in lower section
 
-            AreaRatio = R0^2/R1^2; %upper area divided by lower
+            AreaRatio = R0^2/R1^2; %lower area divided by upper
 
-            z_split        = 500; % the z-coordinate of jump point.
+
+            z_split        = Mc.L - Mc.Hlake; % the z-coordinate of jump point.
             % find the closest point to the specified coordinate and duplicate the grid point
             [~, Mc.split_index] = min(abs(z - z_split));
             z_upper = z(Mc.split_index:end);
@@ -315,7 +313,7 @@ switch bgstate
             Mc.K    = Mc.rho.*Mc.c.^2; % bulk modulus
             Rhoalpha = [Rhoalpha_lower;Rhoalpha_upper];
             Mc.Mg = Rhoalpha - Mc.rho*Mc.g./Mc.K; % the parameter M I defined in Part I paper.
-            z = [z_lower;z_upper];
+            Mc.z = [z_lower;z_upper];
             Mc.S = [S_lower;S_upper];%pi*Mc.R^2*ones(length(z), 1); %cross-sectional area.
         else
 
@@ -335,13 +333,70 @@ switch bgstate
             %shear viscosity profile
             Mc.mu = 100*ones(Mc.nz+1, 1);
         end
-        Mc.alpha = A_c/Mc.V_c*1/((1/Mc.K(1)+1/K_c));% coupling parameters, dp_c/dt=alpha*v(0).
+        %% plot background state %%
+
+        % % % plot colors % % %
+        red = "#BF4539";
+        orange = "#D9863D";
+        green = "#BCBF65";
+        blue = "#51A6A6";
+        % % % % % % % % % % % %
+        
+        figure(1)
+        
+        subplot(1,4,1)
+        plot(Mc.rho, Mc.z, 'color', red, 'LineWidth', 1.5)
+        ylabel('height in column m', "FontSize", 12);
+        xlabel('bulk density kg/m3', "FontSize", 12);
+        grid
+        
+        subplot(1,4,2)
+        plot(Mc.rho .* Mc.c, Mc.z, 'color', orange, 'LineWidth', 1.5)
+        xlabel('Impedance', "FontSize", 12);
+        grid
+        
+        subplot(1,4,3)
+        plot(Mc.mu, Mc.z, 'color', green, 'LineWidth', 1.5)
+        xlabel('viscosity (Pa s)', "FontSize", 12);
+        grid
+        
+        subplot(1,4,4)
+        plot(Mc.c, Mc.z, 'color', blue, 'LineWidth', 1.5)
+        xlabel('soundspeed m/s', "FontSize", 12);
+        grid
+
         
 
-        Mc.Ct = Mc.V_c *(1/Mc.K(1)+1/K_c); %elastic storativity of sphere         
+        
+                   
 end
 
+    if strcmp(Mc.BCtype,'quasistatic')
 
+        %if there is a quasistatic reservoir at the bottom, define its
+        %properties
+        %assume sphere for now
+        A_c = Mc.S(1);%cross sectional area of conduit
+        R_c = Mc.Rres; %radius of spherical chamber
+        Mc.V_c = 4/3*pi*R_c^3; %volume of chamber 
+    
+        K_w = 3e9;% bulk modulus of wall rock
+        nu_w = 0.25;% Poisson's ratio of wall rock
+        %M.lambda_w = 3*M.K_w*M.nu_w/(1+M.nu_w); % lame constant of wall rock
+        G_w = 3*K_w*(1-2*nu_w)/(2+2*nu_w);% shear modulus of rock wall rock  
+    
+        K_c = 4*G_w/3; %sphere elastic stiffness 
+
+        Mc.alpha = A_c/Mc.V_c*1/((1/Mc.K(1)+1/K_c));% coupling parameters, dp_c/dt=alpha*v(0).
+    
+
+        Mc.Ct = Mc.V_c *(1/Mc.K(1)+1/K_c); %elastic storativity of sphere 
+    end
+
+% if segmented radius, this will only be used for determining grid resolution, 
+% is my understanding. Fluid properties are determined based on specified
+% segmented radii above -- KW
+Mc.R = Mc.Rcond; % Mc.Rlake
 
 
 end

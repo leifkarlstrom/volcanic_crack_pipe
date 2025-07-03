@@ -66,11 +66,11 @@ out.skip = skip;
 out.M = Mc;
 
 if eigmodeonly
-    %— eigen‐decomposition
+    %— 1) eigen‐decomposition
     [evec, eMat] = eig(full(Model.Ae + Model.Ai));
     e = diag(eMat);
 
-    %— filter based on T/Q range
+    %— 2) first filter (T/Q window)
     mask = abs(2*pi./imag(e)) > 0.5 ...
          & real(e) > -0.2   ...
          & abs(imag(e)) > 5e-2;
@@ -80,22 +80,21 @@ if eigmodeonly
         return;
     end
 
-    %— compute T & Q and build labels
+    %— 3) compute T & Q and build labels
     T      = 2*pi ./ imag(e(LF));
     Q      = abs(imag(e(LF)) ./ (2*real(e(LF))));
     labels = arrayfun(@(t,q) sprintf('T=%.2f, Q=%.2f',t,q), T, Q, ...
                       'UniformOutput',false);
-    pos    = T > 0;
-    disp( table( T(pos), Q(pos), 'VariableNames', {'T','Q'} ) );
+    disp(table(T,Q));
 
-    %— extract pressure eigenvectors
+    %— 4) extract pressure eigenvectors
     Dims   = Model.dimensions();                  
     pIdx   = Dims(1)+1 : Dims(1)+Dims(2);         
     Z      = Model.geom.z(:);                    
     realEV = real(evec(pIdx, LF));  
     imagEV = imag(evec(pIdx, LF));  
 
-    %— filter out unresolved modes based on smoothness
+    %— filter out unresolve
     d2        = diff(realEV, 2, 1);
     roughness = sum(abs(d2), 1);
     thr       = median(roughness);
