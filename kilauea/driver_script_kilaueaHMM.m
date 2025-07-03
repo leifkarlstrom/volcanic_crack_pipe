@@ -19,21 +19,16 @@ source = 'MELTS_lookup_tables';
 addpath(genpath(source));
 
 
+
 %call script to specify conduit parameters, based on BGstate
 [Mc] = setparameters();
 
-% n= Mc.n_gas;
-% c= Mc.c;
-% z=Mc.z;
-% n1 = Mc.ngas_laketop;
-% n2 = params.ngas_lakebot;
-% n3 = Mc.ngas_condtop;
-% n4 = Mc.ngas_condbot;
-% L = Mc.L;
-% Hlake = Mc.Hlake;
-
 
 %build the model 
+
+% if interface is split, conduit radius will set the resolution for full
+% column -KW
+% Mc.R = Mc.Rcond;
 Model = conduit_internal_g(Mc);
 
 skip = 1; %only save output every "skip" steps to save memory
@@ -71,69 +66,145 @@ out.skip = skip;
 out.M = Mc;
 
 if eigmodeonly
-    %if we are just looking at the resonant T and Q, we can skip the
-    %timestepping and just look at eigenvalues of the RHS
+    %— eigen‐decomposition
+    [evec, eMat] = eig(full(Model.Ae + Model.Ai));
+    e = diag(eMat);
 
-% evec has all of the spatial information (these are the eigenvectors)
-[evec,e] = eig(full(Model.Ae + Model.Ai));
-e = diag(e);
-if isempty(e)
-    warning('No eignevalues.');
-end
+    %— filter based on T/Q range
+    mask = abs(2*pi./imag(e)) > 0.5 ...
+         & real(e) > -0.2   ...
+         & abs(imag(e)) > 5e-2;
+    LF   = find(mask);
+    if isempty(LF)
+        warning('No eigenvalues passed the first filter.');
+        return;
+    end
 
-%find eigenvalues that match target range of imag and real part
-mask = abs(2*pi./imag(e))>.5 & real(e)>-.2 & abs(imag(e))>5e-2;
-%abs(imag(e))<20 & real(e)>-5 & abs(imag(e))>5e-2;
-LF = find(mask);
-% evec = evec( : , LF);
+    %— compute T & Q and build labels
+    T      = 2*pi ./ imag(e(LF));
+    Q      = abs(imag(e(LF)) ./ (2*real(e(LF))));
+    labels = arrayfun(@(t,q) sprintf('T=%.2f, Q=%.2f',t,q), T, Q, ...
+                      'UniformOutput',false);
+    pos    = T > 0;
+    disp( table( T(pos), Q(pos), 'VariableNames', {'T','Q'} ) );
 
-if isempty(imag(e(LF)))
-    warning('No eignevalues in range.');
-end
+    %— extract pressure eigenvectors
+    Dims   = Model.dimensions();                  
+    pIdx   = Dims(1)+1 : Dims(1)+Dims(2);         
+    Z      = Model.geom.z(:);                    
+    realEV = real(evec(pIdx, LF));  
+    imagEV = imag(evec(pIdx, LF));  
 
-T = 2*pi./imag(e(LF));
-Q = abs(imag(e(LF))./(2.*real(e(LF))));
+    %— filter out unresolved modes based on smoothness
+    d2        = diff(realEV, 2, 1);
+    roughness = sum(abs(d2), 1);
+    thr       = median(roughness);
+    resolved  = roughness <= thr;                   
 
-% just keep the positive ones
-% mask = T>0;
-% indices = find(mask);
+    %=== plot: eigenvalue spectrum ===
+    figure; hold on;
+      plot(real(e),              imag(e),             'o','Color',[.8 .8 .8]);
+      plot(real(e(LF(resolved))),imag(e(LF(resolved))),...
+           'ro','MarkerFaceColor','r','MarkerSize',8);
+    xlabel('Re(s)'); ylabel('Im(s)');
+    legend('','Resolved modes','Location','best');
+    hold off;
+
+    %=== plot: spatial eigenvectors ===
+    figure;
+
+    %— real part
+    ax1 = subplot(2,1,1); hold(ax1,'on');
+      for j = 1:numel(LF)
+        if resolved(j)
+          plot(Z, realEV(:,j), 'LineWidth',1.5, 'DisplayName', labels{j}); 
+        else
+          plot(Z, realEV(:,j), 'Color',[.7 .7 .7], 'LineWidth',1, 'HandleVisibility','off');
+        end
+      end
+      ylabel('Re[pressure eig vec]'); xlabel('distance (m)');
+      legend(ax1,'Location','best');
+    hold(ax1,'off');
+
+    %— imaginary part
+    ax2 = subplot(2,1,2); hold(ax2,'on');
+      for j = 1:numel(LF)
+        if resolved(j)
+          plot(Z, imagEV(:,j), 'LineWidth',1.5);
+        else
+          plot(Z, imagEV(:,j), 'Color',[.7 .7 .7], 'LineWidth',1);
+        end
+      end
+      ylabel('Im[pressure eig vec]'); xlabel('distance (m)');
+    hold(ax2,'off');
+
+
+
+
+% if eigmodeonly
+% %if we are just looking at the resonant T and Q, we can skip the
+% %timestepping and just look at eigenvalues of the RHS
 % 
-% T = T(indices);
-% Q = Q(indices);
-% evec = evec(: , indices);
-display(T);
-display(Q);
-
-figure
-%hold on
-plot(real(e),imag(e),'o')
-ylabel('imaginary part of (s)')
-xlabel('real part of (s)')
-%keyboard
-
-%extract dimensions of the model variables: 
-% [velocity (not xsectionally avg), pressure, displacement, surface height, chamber pressure]
-% [vz, pz, h, hL, p_c]
-Dims = Model.dimensions(); 
-
-for i=1:length(T)
-    lbl{i} = ['T = ' num2str(round(T(i)*10)/10) ', Q = ' num2str(round(Q(i)*10)/10)]; 
-end
-
-% This plot is giving an error, need to fix #KW
-% LF exceeds the array limit
-figure
-subplot(2,1,1)
-%plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
-plot(Model.geom.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
-ylabel('Re[pressure eig vec]')
-xlabel('distance (m)')
-subplot(2,1,2)
-%plot(Model.M.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
-plot(Model.geom.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
-ylabel('Im[pressure eig vec]')
-xlabel('distance (m)')
-legend(lbl)
+% % evec has all of the spatial information (these are the eigenvectors)
+% [evec,e] = eig(full(Model.Ae + Model.Ai));
+% e = diag(e);
+% if isempty(e)
+%     warning('No eignevalues.');
+% end
+% 
+% %find eigenvalues that match target range of imag and real part
+% mask = abs(2*pi./imag(e))>.5 & real(e)>-.2 & abs(imag(e))>5e-2;
+% %abs(imag(e))<20 & real(e)>-5 & abs(imag(e))>5e-2;
+% LF = find(mask);
+% % evec = evec( : , LF);
+% 
+% if isempty(imag(e(LF)))
+%     warning('No eignevalues in range.');
+% end
+% 
+% T = 2*pi./imag(e(LF));
+% Q = abs(imag(e(LF))./(2.*real(e(LF))));
+% 
+% % just keep the positive ones
+% % mask = T>0;
+% % indices = find(mask);
+% % 
+% % T = T(indices);
+% % Q = Q(indices);
+% % evec = evec(: , indices);
+% display(T);
+% display(Q);
+% 
+% figure
+% %hold on
+% plot(real(e),imag(e),'o')
+% ylabel('imaginary part of (s)')
+% xlabel('real part of (s)')
+% %keyboard
+% 
+% %extract dimensions of the model variables: 
+% % [velocity (not xsectionally avg), pressure, displacement, surface height, chamber pressure]
+% % [vz, pz, h, hL, p_c]
+% Dims = Model.dimensions(); 
+% 
+% for i=1:length(T)
+%     lbl{i} = ['T = ' num2str(round(T(i)*10)/10) ', Q = ' num2str(round(Q(i)*10)/10)]; 
+% end
+% 
+% % This plot is giving an error, need to fix #KW
+% % LF exceeds the array limit
+% figure
+% subplot(2,1,1)
+% %plot(Model.M.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+% plot(Model.geom.z,real(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+% ylabel('Re[pressure eig vec]')
+% xlabel('distance (m)')
+% subplot(2,1,2)
+% %plot(Model.M.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+% plot(Model.geom.z,imag(evec(Dims(1)+1:Dims(1)+Dims(2),LF)));
+% ylabel('Im[pressure eig vec]')
+% xlabel('distance (m)')
+% legend(lbl)
 
 else
 
